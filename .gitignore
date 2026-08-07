@@ -1,0 +1,30 @@
+# 私钥和凭据 —— 绝不入库
+*.key
+*.pem
+id_rsa*
+id_ed25519*
+*_RsaKey*
+*RsaKeyExpireTime*
+.env
+*.token
+credentials*
+
+# 生成物
+*.slurm
+!clusters/*.conf
+
+# 备份
+*.bak
+*.bak.*
+*.orig
+
+# 编辑器 / 系统
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
