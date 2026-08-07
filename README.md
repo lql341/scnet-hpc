@@ -91,9 +91,21 @@ references/
 
 ## 已收录的集群
 
-| 短名 | 描述 | 加速器 |
+| 短名 | 描述 | 加速器 | 队列 |
+|---|---|---|---|
+| `zzeshell` | 超算互联网 · 郑州 | 海光 BW1000 DCU (gfx936) ×8/节点, 64GB/卡 | 仅 DCU（强制申请）|
+| `ks` | 超算互联网 · 昆山 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
+
+两个集群的差异说明了为什么要把参数抽成 profile：
+
+| | zzeshell | ks |
 |---|---|---|
-| `zzeshell` | 超算互联网 · 郑州 | 海光 BW1000 DCU (gfx936) ×8/节点 |
+| SSH 端口 | 65032 | 65023 |
+| `DefMemPerCPU` | 3888 MB | 3569 MB |
+| 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` |
+| 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 |
+| DTK 路径 | `compiler/dtk-26.04` | `compiler/rocm/dtk-26.04` |
+| 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）|
 
 ## 隐私
 

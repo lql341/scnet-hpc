@@ -88,6 +88,45 @@ MoE、transformers finegrained-fp8）。
 
 gfx936 不支持硬件 FP8 计算。需要软件反量化（把 FP8 权重转成 BF16 再算）。
 
+### 退出码 53，且**完全没有日志文件**
+
+`#SBATCH` 是注释行，**Slurm 不做变量展开**。日志路径里写 `$USER` 会被当成字面量
+目录名，作业启动就失败：
+
+```
+$ sacct -j <ID> --format=State,ExitCode
+FAILED|0:53
+$ cat ~/scripts/logs/myjob_<ID>.log
+cat: No such file or directory        ← 连日志都没有，因为写不进去
+```
+
+两个原因都会导致这个：
+
+1. `--output` / `--error` 路径里有未展开的变量（`$USER`、`$HOME`）
+2. **日志目录不存在** —— Slurm 不会自动创建
+
+修法：`#SBATCH` 里写完整字面量路径，提交前 `mkdir -p <日志目录>`。
+`scripts/new-job.sh` 会展开好用户名并提示建目录。
+
+### `module load` 静默失败：作业返回 0 但 `ROCM_PATH` 没设置
+
+某些集群的 module 函数只在 **login shell** 里定义。用普通 `#!/bin/bash` 时
+`module load` 什么都不做，也不报错：
+
+```
+ROCM_PATH=未设置
+--- 架构 ---           ← rocminfo 无输出
+--- 显存 ---           ← rocm-smi 无输出
+### python exit=0      ← 作业「成功」了
+```
+
+这比直接报错更坑，因为退出码是 0。实测于昆山集群。
+
+修法：shebang 用 `#!/bin/bash -l`，或在 heredoc 内包一层 `bash -l`。
+`scripts/new-job.sh` 生成的脚本已经用 `bash -l`。
+
+自检：作业里打印 `echo "ROCM_PATH=${ROCM_PATH:-未设置}"`，未设置就说明没生效。
+
 ### `TIMEOUT`
 
 `--time` 不够。注意大模型加载本身就很慢（DeepSeek V4 加载 154B 权重约 27 分钟），
