@@ -75,7 +75,8 @@ macOS 上额外清除下载文件的隔离属性并启用 Keychain。**幂等**�
 SKILL.md                        主文件：通用约束、提交、调试
 clusters/
 ├── _template.conf              新集群模板
-└── zzeshell.conf               海光 DCU 集群（郑州）
+├── zzeshell.conf               海光 BW1000 DCU（郑州）
+└── kseshell.conf               海光 Z100 DCU（昆山）
 scripts/
 ├── _common.sh                  profile 加载（被其他脚本 source）
 ├── setup-ssh.sh                配置 SSH 连接
@@ -94,11 +95,11 @@ references/
 | 短名 | 描述 | 加速器 | 队列 |
 |---|---|---|---|
 | `zzeshell` | 超算互联网 · 郑州 | 海光 BW1000 DCU (gfx936) ×8/节点, 64GB/卡 | 仅 DCU（强制申请）|
-| `ks` | 超算互联网 · 昆山 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
+| `kseshell` | 超算互联网 · 昆山 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
 
 两个集群的差异说明了为什么要把参数抽成 profile：
 
-| | zzeshell | ks |
+| | zzeshell | kseshell |
 |---|---|---|
 | SSH 端口 | 65032 | 65023 |
 | `DefMemPerCPU` | 3888 MB | 3569 MB |
@@ -110,9 +111,12 @@ references/
 ## 隐私
 
 仓库里不含私钥、token、个人用户名或密钥指纹。集群主机名和端口是平台公开信息。
-作业脚本模板用 `$USER` 而非硬编码用户名。
 
-`.gitignore` 排除了 `*.key`、`id_rsa*`、`*_RsaKey*` 等，避免误提交私钥。
+`new-job.sh` 生成脚本时会把本机用户名展开进日志路径（`#SBATCH` 是注释行，
+Slurm 不做变量展开，写 `$USER` 会导致作业失败），所以**生成的 `.slurm` 文件含
+你的用户名**——`.gitignore` 已排除 `*.slurm`。
+
+`.gitignore` 还排除了 `*.key`、`id_rsa*`、`*_RsaKey*` 等，避免误提交私钥。
 
 ## License
 
