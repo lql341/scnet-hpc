@@ -6,8 +6,8 @@ bash 脚本里 Python 崩了之后，bash 继续执行后面的行，作业以**
 结束。真实案例：
 
 ```
-$ sacct -j 733201 --format=JobID,JobName,State,ExitCode,Elapsed
-733201 | dsv4-native | COMPLETED | 0:0 | 00:34:32
+$ sacct -j <JOB_ID> --format=JobID,JobName,State,ExitCode,Elapsed
+<JOB_ID> | example-job | COMPLETED | 0:0 | 00:34:32
 ```
 
 看着完美，实际上 Python 在第 3 分钟就抛了 `ValueError`，日志末尾还打印了脚本里
@@ -142,8 +142,8 @@ sacct -j <ID> --format=JobID,State,MaxRSS,ReqMem -P
 
 ```
 JobID|MaxRSS|ReqMem
-733291||115G              ← 主行没有 MaxRSS
-733291.batch|120586316K|  ← 实际峰值在这里（约 120GB）
+<JOB_ID>||115G              ← 主行没有 MaxRSS
+<JOB_ID>.batch|120586316K|  ← 实际峰值在这里
 ```
 
 `MaxRSS` 接近 `cpus × DEF_MEM_PER_CPU` 就是 CPU 内存不够，加 `--cpus-per-task`。

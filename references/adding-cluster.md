@@ -61,7 +61,7 @@ srun -p <分区> --gres=gpu:1 --time=00:05:00 nvidia-smi --query-gpu=name --form
 
 **`KEY_NAME_MARKER`** —— 看私钥文件名格式。若形如
 `zhangsan_xxx.scnet.cn_RsaKeyExpireTime_2027-01-01.txt`，则设
-`KEY_NAME_MARKER="_xxx.scnet.cn_"`，脚本就能自动提取用户名。
+`KEY_NAME_MARKER="_<集群主机>_"`，脚本就能自动提取用户名。
 
 ### 5. 用正式流程重配连接
 

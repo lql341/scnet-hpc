@@ -146,8 +146,8 @@ not available` 是当前无空闲节点（配额没问题）；`too much memory`
 作业以最后一条命令的退出码结束：
 
 ```
-$ sacct -j 733201
-733201 | dsv4-native | COMPLETED | 0:0 | 00:34:32     ← 假的！
+$ sacct -j <JOB_ID>
+<JOB_ID> | example-job | COMPLETED | 0:0 | 00:34:32     ← 可能是假的！
 ```
 
 而日志里 Python 早就抛异常了，甚至还打印了脚本末尾的 "COMPLETE" 字样。

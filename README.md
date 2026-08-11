@@ -56,7 +56,7 @@ cd scnet-hpc
 从超算平台控制台下载私钥（`.txt` 文件），然后：
 
 ```bash
-./scripts/setup-ssh.sh --cluster zzeshell ~/Downloads/你的用户名_<CLUSTER_HOST>_RsaKeyExpireTime_*.txt
+./scripts/setup-ssh.sh --cluster <集群短名> ~/Downloads/<用户名>_<集群主机>_RsaKeyExpireTime_<日期>.txt
 ```
 
 只有一个集群 profile 时可省略 `--cluster`。用户名从私钥文件名自动推断。
@@ -151,7 +151,7 @@ references/
 
 | | zzeshell | kseshell |
 |---|---|---|
-| SSH 端口 | 65032 | 65023 |
+| SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 |
 | `DefMemPerCPU` | 3888 MB | 3569 MB |
 | 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` |
 | 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 |
