@@ -1,6 +1,6 @@
 ---
 name: scnet-hpc
-description: 在超算互联网（scnet.cn）及同类国产超算集群上工作 —— 从个人电脑（macOS/Linux）配置 SSH 连接、提交和监控 Slurm 作业、交互式调试、排查作业失败、安装 Python 依赖。当任务涉及超算集群、Slurm 作业、海光 DCU / DTK / gfx9xx、或需要写 sbatch 脚本、判断该在登录节点还是计算节点执行某件事时使用。集群参数存在 clusters/*.conf，支持多集群。
+description: 在超算互联网（scnet.cn）及同类国产超算集群上工作 —— 从个人电脑（macOS/Linux）配置 SSH 连接、提交和监控 Slurm 作业、交互式调试、排查作业失败、安装 Python 依赖，以及查找海光 DCU/DTK 的官方开发文档、数学库、通信库、分析调试和 CUDA 迁移工具。当任务涉及超算集群、Slurm 作业、海光 DCU / DTK / gfx9xx、DTK 工具库选型、或需要写 sbatch 脚本、判断该在登录节点还是计算节点执行某件事时使用。集群参数存在 clusters/*.conf，支持多集群。
 ---
 
 # 国产超算集群使用规范
@@ -30,6 +30,7 @@ cat clusters/<集群短名>.conf     # 看具体参数
 | `references/environment.md` | 环境栈、装依赖、目录约定、迁移注意 |
 | `references/troubleshooting.md` | 排查手册、调试策略 |
 | `references/adding-cluster.md` | 新增集群的完整步骤 |
+| `references/hygon-dcu-development.md` | 海光 DCU 开发流程、DTK 工具库与官方资源索引 |
 
 ## 换机器
 
@@ -182,6 +183,10 @@ sinfo -p <分区> -o "%n %c %m %G %t"   # 节点资源和状态
 `drain`/`drng` 不可调度，实际可用常少于总数。
 
 ## 加速器能力边界
+
+用户询问海光开发环境、HIP、数学库、通信库、性能分析、CUDA 迁移或容器部署时，
+先读 `references/hygon-dcu-development.md`。用它定位官方资料，再以目标集群的
+module、计算节点探针和 profile 为准；不要把网页当前版本直接覆盖到集群环境。
 
 **不要假设加速器支持什么。** 国产加速器（海光 DCU、寒武纪、昇腾）的软件栈往往
 落后于上游，很多 CUDA/ROCm 上想当然的能力并不存在。profile 的

@@ -136,7 +136,8 @@ references/
 ├── setup.md                    连接配置详解、平台差异
 ├── environment.md              环境栈、装依赖、目录约定、迁移注意
 ├── troubleshooting.md          排查手册、分层调试策略
-└── adding-cluster.md           新增集群步骤、能力探针
+├── adding-cluster.md           新增集群步骤、能力探针
+└── hygon-dcu-development.md    海光 DCU 开发与 DTK 工具库索引
 ```
 
 ## 已收录的集群
