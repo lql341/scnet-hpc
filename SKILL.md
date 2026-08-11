@@ -31,6 +31,7 @@ cat clusters/<集群短名>.conf     # 看具体参数
 | `references/troubleshooting.md` | 排查手册、调试策略 |
 | `references/adding-cluster.md` | 新增集群的完整步骤 |
 | `references/hygon-dcu-development.md` | 海光 DCU 开发流程、DTK 工具库与官方资源索引 |
+| `references/software-compatibility.md` | 国产超算上的软件兼容性排查、验证分层与公开报告脱敏 |
 
 ## 换机器
 
@@ -117,6 +118,10 @@ export TRANSFORMERS_OFFLINE=1
 ### 5. `/tmp` 通常不跨节点共享 —— 文件放家目录
 
 `TMP_SHARED=no` 时，`/tmp` 在计算节点是本地的，作业之间不可见。
+
+### 6. 先验证二进制兼容性，再做完整安装
+
+遇到 Python/C++/GPU 软件安装问题时，先确认系统 ABI、manylinux 标签、编译器/DTK 版本和运行节点网络条件，再选择版本。不要只根据 pip/conda 能否解析依赖判断可用性；必须在目标计算节点完成最小 import、kernel、功能和端到端验证。
 
 ## 提交作业
 
@@ -224,3 +229,11 @@ Triton 那条影响最大：**任何依赖 Triton kernel 的推理框架都跑�
 | `sacct` COMPLETED 但结果不对 | 脚本缺 `exit $rc` |
 
 完整手册见 `references/troubleshooting.md`。
+
+## 公开报告与知识沉淀
+
+将集群实测结果写入公开报告或仓库前，保留环境、方法、版本、结果和限制，移除或替换以下信息：用户名、SSH 主机/端口、内部域名、IP、节点名、作业编号、绝对家目录和私有镜像地址。可用 `<USER_HOME>`、`<DTK_ROOT>`、`<CLUSTER_HOST>`、`已脱敏作业` 等占位符。
+
+报告正文沿用已有 LAMMPS 报告的结构和风格：深色渐变卡片、青绿色主色、蓝色辅助色，以及“环境信息 → 编译过程与主要难题 → 最终方案 → 测试结果 → 已知限制 → 经验总结 → 附录”的叙述顺序。公开结论必须标明测试环境、验证范围和未验证边界。
+
+详细的兼容性排查和报告模板见 `references/software-compatibility.md`。
