@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# 把这个 skill 安装到本机的 Claude Code 配置目录。
+# 把这个 skill 安装到本机的 Codex / Claude Code 配置目录。
 #
 #   ./install.sh              # 用户级（所有项目可用）
-#   ./install.sh --project    # 当前项目的 .claude/skills/
+#   ./install.sh --project    # 当前项目的 .codex/skills/ 或 .claude/skills/
+#   ./install.sh --codex      # 强制安装到 Codex
+#   ./install.sh --claude     # 强制安装到 Claude Code
 #   ./install.sh --link       # 用符号链接（改仓库即生效，便于开发）
 #
 # 幂等：重复运行会先备份已有的同名 skill。
@@ -13,18 +15,35 @@ SKILL_NAME="scnet-hpc"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 MODE="user"
+TARGET="auto"
 LINK="no"
 for arg in "$@"; do
     case "$arg" in
         --project) MODE="project" ;;
+        --codex) TARGET="codex" ;;
+        --claude) TARGET="claude" ;;
         --link)    LINK="yes" ;;
-        -h|--help) sed -n '2,9p' "$0" | sed 's/^# \?//'; exit 0 ;;
+        -h|--help) sed -n '2,12p' "$0" | sed 's/^# \?//'; exit 0 ;;
         *) echo "未知参数: $arg" >&2; exit 1 ;;
     esac
 done
 
+if [ "$TARGET" = "auto" ]; then
+    if [ -n "${CODEX_HOME:-}" ] || [ -d "$HOME/.codex/skills" ]; then
+        TARGET="codex"
+    else
+        TARGET="claude"
+    fi
+fi
+
 if [ "$MODE" = "project" ]; then
-    DST_ROOT="$(pwd)/.claude/skills"
+    if [ "$TARGET" = "codex" ]; then
+        DST_ROOT="$(pwd)/.codex/skills"
+    else
+        DST_ROOT="$(pwd)/.claude/skills"
+    fi
+elif [ "$TARGET" = "codex" ]; then
+    DST_ROOT="${CODEX_HOME:-$HOME/.codex}/skills"
 else
     # 尊重 CLAUDE_CONFIG_DIR（有些环境用非默认配置目录）
     DST_ROOT="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills"
@@ -33,6 +52,7 @@ DST="$DST_ROOT/$SKILL_NAME"
 
 echo "==> 源:   $SRC_DIR"
 echo "==> 目标: $DST"
+echo "==> 目标类型: ${TARGET}"
 
 [ -f "$SRC_DIR/SKILL.md" ] || { echo "错误: 源目录里找不到 SKILL.md" >&2; exit 1; }
 
@@ -55,9 +75,9 @@ if [ "$LINK" = "yes" ]; then
 else
     mkdir -p "$DST"
     # 用 tar 而非 cp -r，跨平台行为更一致
-    (cd "$SRC_DIR" && tar cf - --exclude='.git' --exclude='*.bak' .) \
+    (cd "$SRC_DIR" && tar cf - --exclude='.git' --exclude='*.bak' --exclude='./clusters/.cache' .) \
         | (cd "$DST" && tar xf -)
-    chmod +x "$DST"/scripts/*.sh 2>/dev/null || true
+    chmod +x "$DST"/scripts/*.sh "$DST"/scripts/*.py 2>/dev/null || true
     echo "==> 已复制"
 fi
 
@@ -75,6 +95,6 @@ cat <<EOF
   2. 新增另一个集群：
        $DST/scripts/probe-cluster.sh <ssh别名> <短名> > $DST/clusters/<短名>.conf
 
-  3. Claude Code 里涉及集群的任务会自动加载这个 skill，
+  3. Codex 或 Claude Code 里涉及集群的任务会自动加载这个 skill，
      也可以直接调用 /$SKILL_NAME
 EOF

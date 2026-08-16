@@ -24,6 +24,8 @@ cat clusters/<集群短名>.conf     # 看具体参数
 | `clusters/_template.conf` | 新增集群的模板 |
 | `scripts/setup-ssh.sh` | 新电脑上配连接（macOS/Linux，幂等）|
 | `scripts/probe-cluster.sh` | 探测新集群，自动生成 profile |
+| `scripts/refresh-cluster.sh` | 动态刷新已有集群的规则缓存 |
+| `scripts/run-compute-probe.sh` | 在计算节点运行最小能力探针 |
 | `scripts/new-job.sh` | 按 profile 生成合规的作业脚本 |
 | `scripts/install.sh` | 把 skill 装到另一台机器 |
 | `references/setup.md` | 连接配置详解、平台差异、故障排查 |
@@ -54,6 +56,30 @@ git clone <仓库地址> && cd scnet-hpc
 ```
 
 完整步骤见 `references/adding-cluster.md`。
+
+## 动态刷新已有集群规则
+
+profile 里的 `SSH_HOST` / `SSH_PORT` 是固定连接参数，应写死在
+`clusters/<集群短名>.conf`。其余容易随平台调整的规则
+（`DEF_MEM_PER_CPU`、`MIN_GRES`、`PARTITION`、`NET_OK`、登录节点缺库等）
+可以动态探测：
+
+```bash
+./scripts/refresh-cluster.sh --cluster <集群短名>          # 只做登录节点只读探测
+./scripts/refresh-cluster.sh --cluster <集群短名> --compute # 再提交一个 10 分钟小作业
+./scripts/refresh-cluster.sh --cluster <集群短名> --dry-run  # 只看结果，不写缓存
+```
+
+结果写到 `clusters/.cache/<集群短名>.auto.conf`，后续脚本会自动加载并覆盖
+profile 中的同名字段。删除该缓存文件即可回退到纯 profile。生成作业时可用
+`./scripts/new-job.sh --refresh ...` 先刷新再生成，或用 `--no-auto` 忽略缓存。
+
+默认只做登录节点探测，不提交作业；`--compute` 才会到计算节点实测加速器架构、
+FP8、Triton、bitsandbytes 和外网状态。
+
+分区节点数 `NODE_COUNT` 是例外：每次加载集群时都会实时查询当前
+`PARTITION` 的 `TotalNodes`，查不到才回退到 cache/profile。需要关闭时设
+`SCNET_HPC_LIVE_NODE_COUNT=no`。
 
 ## 通用硬约束
 
@@ -226,6 +252,8 @@ Triton 那条影响最大：**任何依赖 Triton kernel 的推理框架都跑�
 | `lib*.so: cannot open shared object file` | 没 `module load`，或在登录节点跑了 |
 | `Name or service not known` / `offline mode` | 计算节点在访问外网 |
 | `hipDrvLaunchKernelEx` | Triton 不可用，换纯 PyTorch 路线 |
+| `libgcvm.so.17git: cannot open shared object file` | Triton 在当前 DTK/DCU 栈不可用 |
+| `python3: command not found` | 昆山计算节点需 `module load python/3.8.10` |
 | `sacct` COMPLETED 但结果不对 | 脚本缺 `exit $rc` |
 
 完整手册见 `references/troubleshooting.md`。

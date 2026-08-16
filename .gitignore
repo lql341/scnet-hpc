@@ -12,6 +12,7 @@ credentials*
 # 生成物
 *.slurm
 !clusters/*.conf
+clusters/.cache/
 
 # 备份
 *.bak

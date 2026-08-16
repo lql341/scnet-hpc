@@ -1,6 +1,6 @@
 # scnet-hpc
 
-在国产超算集群上工作的 [Claude Code](https://claude.com/claude-code) skill —— 从个人电脑配置连接、提交 Slurm 作业、交互式调试、排查失败。
+在国产超算集群上工作的 Codex / Claude Code skill —— 从个人电脑配置连接、提交 Slurm 作业、交互式调试、排查失败。
 
 面向超算互联网（scnet.cn）系列集群，支持多集群。集群参数存在 `clusters/*.conf`，脚本从 profile 读取，新增集群只需加一个配置文件。
 
@@ -20,9 +20,9 @@
 
 ## 安装
 
-**如果你在用 Claude Code（或其他能执行命令的 AI 助手），直接把下面这段话发给它：**
+**如果你在用 Codex、Claude Code（或其他能执行命令的 AI 助手），直接把下面这段话发给它：**
 
-> 帮我安装 scnet-hpc 这个 Claude Code skill。
+> 帮我安装 scnet-hpc 这个 AI 助手 skill。
 > 从 https://github.com/lql341/scnet-hpc 克隆到本地（放哪都行，我不常动它），
 > 然后运行仓库里的 `./scripts/install.sh`。
 > 装完告诉我有哪些集群 profile 可用（`ls clusters/*.conf`）。
@@ -40,15 +40,18 @@ cd scnet-hpc
 ./scripts/install.sh
 ```
 
-`install.sh` 装到用户级（所有项目可用），会自动识别 `CLAUDE_CONFIG_DIR`，
-已有安装先备份。其他方式：
+`install.sh` 装到用户级（所有项目可用）。默认优先识别 Codex 配置目录
+`~/.codex/skills`，否则回退到 Claude Code 的 `~/.claude/skills`。已有安装先备份。
+其他方式：
 
 ```bash
-./scripts/install.sh --project    # 只装到当前项目的 .claude/skills/
+./scripts/install.sh --project    # 只装到当前项目的 .codex/skills/ 或 .claude/skills/
+./scripts/install.sh --codex      # 强制安装到 Codex
+./scripts/install.sh --claude     # 强制安装到 Claude Code
 ./scripts/install.sh --link       # 符号链接，改仓库立即生效（开发用）
 ```
 
-装完之后，Claude Code 里凡是涉及超算集群的任务会自动加载这个 skill，
+装完之后，Codex / Claude Code 里凡是涉及超算集群的任务会自动加载这个 skill，
 也可以直接输入 `/scnet-hpc` 调用。
 
 ## 配置连接
@@ -92,6 +95,24 @@ ssh zzeshell 'mkdir -p ~/scripts/logs && sbatch --test-only ~/scripts/myjob.slur
 `--test-only` 先验证配额合法，不真排队——返回 `Job N to start at <时间>` 就说明
 参数没问题，去掉 `--test-only` 正式提交。
 
+## 动态刷新集群规则
+
+连接参数 `SSH_HOST` / `SSH_PORT` 写死在 profile；容易变化的调度器、内存上限、
+分区、网络可达性和登录节点缺库，可以动态探测：
+
+```bash
+./scripts/refresh-cluster.sh --cluster <集群短名>          # 登录节点只读探测
+./scripts/refresh-cluster.sh --cluster <集群短名> --compute # 额外提交计算节点探针
+./scripts/refresh-cluster.sh --cluster <集群短名> --dry-run  # 只看结果，不写缓存
+```
+
+结果写入 `clusters/.cache/<集群短名>.auto.conf`，后续脚本自动加载并覆盖
+profile 的同名字段。删除缓存文件即可回退；生成作业时也可用
+`./scripts/new-job.sh --refresh ...` 先刷新，或用 `--no-auto` 忽略缓存。
+
+分区节点数 `NODE_COUNT` 默认实时查询当前 `PARTITION`，不写死；查不到时才回退到
+cache/profile。要关闭实时查询可设置 `SCNET_HPC_LIVE_NODE_COUNT=no`。
+
 ## 新增集群
 
 **发给 AI 助手：**
@@ -130,6 +151,9 @@ scripts/
 ├── _common.sh                  profile 加载（被其他脚本 source）
 ├── setup-ssh.sh                配置 SSH 连接
 ├── probe-cluster.sh            探测集群生成 profile
+├── refresh-cluster.sh          动态刷新已有集群的规则缓存
+├── run-compute-probe.sh        在计算节点运行最小能力探针
+├── compute-probe.py            计算节点能力探针的 Python 实现
 ├── new-job.sh                  生成作业脚本
 └── install.sh                  安装 skill
 references/
