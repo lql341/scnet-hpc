@@ -40,10 +40,11 @@ cat clusters/<集群短名>.conf     # 看具体参数
 ```bash
 git clone <仓库地址> && cd scnet-hpc
 ./scripts/install.sh                          # 装 skill
-./scripts/setup-ssh.sh <私钥文件>              # 配连接（自动读唯一的 profile）
+./scripts/setup-ssh.sh <私钥文件> <用户名>      # 配连接（自动读唯一的 profile）
 ```
 
-有多个 profile 时加 `--cluster <短名>`。开发时用 `./scripts/install.sh --link`
+公开 profile 里 `KEY_NAME_MARKER` 是占位符，所以需要显式传用户名。有多个
+profile 时加 `--cluster <短名>`。开发时用 `./scripts/install.sh --link`
 建符号链接，改仓库立即生效。
 
 ## 新增集群

@@ -71,8 +71,11 @@ srun -p <分区> --gres=gpu:1 --time=00:05:00 nvidia-smi --query-gpu=name --form
 删掉第 2 步的临时段，然后：
 
 ```bash
-./scripts/setup-ssh.sh --cluster <集群短名> <私钥文件>
+./scripts/setup-ssh.sh --cluster <集群短名> <私钥文件> <用户名>
 ```
+
+公开 profile 使用占位符时，`<用户名>` 必须显式传入；如果已在本地私有 profile
+里填了真实 `KEY_NAME_MARKER`，可以省略。
 
 ### 6. 实测加速器能力，写回 profile
 

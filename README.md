@@ -28,7 +28,8 @@
 > 装完告诉我有哪些集群 profile 可用（`ls clusters/*.conf`）。
 > 接着帮我配置连接：我的私钥在 `~/Downloads/` 下，是从超算平台控制台下载的
 > `.txt` 文件，文件名形如 `<用户名>_<主机名>_RsaKeyExpireTime_<日期>.txt`。
-> 用 `./scripts/setup-ssh.sh --cluster <集群短名> <私钥路径>` 配好并验证能连上。
+> 用 `./scripts/setup-ssh.sh --cluster <集群短名> <私钥路径> <用户名>` 配好并验证能连上。
+> 公开 profile 里的 `KEY_NAME_MARKER` 是占位符，所以需要显式传入用户名。
 
 它会自己找到私钥文件、挑对 profile、装好后测试连接。
 
@@ -59,10 +60,12 @@ cd scnet-hpc
 从超算平台控制台下载私钥（`.txt` 文件），然后：
 
 ```bash
-./scripts/setup-ssh.sh --cluster <集群短名> ~/Downloads/<用户名>_<集群主机>_RsaKeyExpireTime_<日期>.txt
+./scripts/setup-ssh.sh --cluster <集群短名> ~/Downloads/<用户名>_<集群主机>_RsaKeyExpireTime_<日期>.txt <用户名>
 ```
 
-只有一个集群 profile 时可省略 `--cluster`。用户名从私钥文件名自动推断。
+只有一个集群 profile 时可省略 `--cluster`。公开 profile 使用占位符，所以用户名
+需要显式传入；如果在本机私有 profile 或 `~/.ssh/config` 里补齐了
+`KEY_NAME_MARKER`，脚本仍可从私钥文件名自动推断。
 
 脚本会做这些事，重复运行只补缺失项：
 
@@ -146,7 +149,8 @@ SKILL.md                        主文件：通用约束、提交、调试
 clusters/
 ├── _template.conf              新集群模板
 ├── zzeshell.conf               海光 BW1000 DCU（郑州）
-└── kseshell.conf               海光 Z100 DCU（昆山）
+├── kseshell.conf               海光 Z100 DCU（昆山）
+└── .cache/                     动态探测缓存（gitignore）
 scripts/
 ├── _common.sh                  profile 加载（被其他脚本 source）
 ├── setup-ssh.sh                配置 SSH 连接
@@ -161,7 +165,8 @@ references/
 ├── environment.md              环境栈、装依赖、目录约定、迁移注意
 ├── troubleshooting.md          排查手册、分层调试策略
 ├── adding-cluster.md           新增集群步骤、能力探针
-└── hygon-dcu-development.md    海光 DCU 开发与 DTK 工具库索引
+├── hygon-dcu-development.md    海光 DCU 开发与 DTK 工具库索引
+└── software-compatibility.md   兼容性排查与公开报告模板
 ```
 
 ## 已收录的集群
@@ -176,15 +181,19 @@ references/
 | | zzeshell | kseshell |
 |---|---|---|
 | SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 |
-| `DefMemPerCPU` | 3888 MB | 3569 MB |
+| `DefMemPerCPU` | 3800 MB | 3569 MB |
 | 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` |
 | 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 |
+| 节点数 | 实时 `TotalNodes`，回退 131 | 实时 `TotalNodes`，回退 1368 |
 | DTK 路径 | `compiler/dtk-26.04` | `compiler/rocm/dtk-26.04` |
+| Python module | 无需额外加载 | `python/3.8.10` |
 | 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）|
 
 ## 隐私
 
-仓库里不含私钥、token、个人用户名或密钥指纹。集群主机名和端口是平台公开信息。
+仓库里不含私钥、token、个人用户名或密钥指纹。公开 profile 中的
+`KEY_NAME_MARKER` 和 `LOGIN_NODES` 使用占位符/示意值，不包含真实节点名。
+集群主机名和端口是平台公开信息。
 
 `new-job.sh` 生成脚本时会把本机用户名展开进日志路径（`#SBATCH` 是注释行，
 Slurm 不做变量展开，写 `$USER` 会导致作业失败），所以**生成的 `.slurm` 文件含
