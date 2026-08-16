@@ -150,6 +150,7 @@ clusters/
 ├── _template.conf              新集群模板
 ├── zzeshell.conf               海光 BW1000 DCU（郑州）
 ├── kseshell.conf               海光 Z100 DCU（昆山）
+├── wuzhshell.conf              海光 Z100 DCU（乌镇）
 └── .cache/                     动态探测缓存（gitignore）
 scripts/
 ├── _common.sh                  profile 加载（被其他脚本 source）
@@ -175,19 +176,20 @@ references/
 |---|---|---|---|
 | `zzeshell` | 超算互联网 · 郑州 | 海光 BW1000 DCU (gfx936) ×8/节点, 64GB/卡 | 仅 DCU（强制申请）|
 | `kseshell` | 超算互联网 · 昆山 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
+| `wuzhshell` | 超算互联网 · 乌镇 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
 
-两个集群的差异说明了为什么要把参数抽成 profile：
+多个集群的差异说明了为什么要把参数抽成 profile：
 
-| | zzeshell | kseshell |
-|---|---|---|
-| SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 |
-| `DefMemPerCPU` | 3800 MB | 3569 MB |
-| 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` |
-| 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 |
-| 节点数 | 实时 `TotalNodes`，回退 131 | 实时 `TotalNodes`，回退 1368 |
-| DTK 路径 | `compiler/dtk-26.04` | `compiler/rocm/dtk-26.04` |
-| Python module | 无需额外加载 | `python/3.8.10` |
-| 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）|
+| | zzeshell | kseshell | wuzhshell |
+|---|---|---|---|
+| SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 | 按平台 profile 填写 |
+| `DefMemPerCPU` | 3800 MB | 3569 MB | 3634 MB |
+| 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` | `wzhcnormal` / `wzhdnormal` |
+| 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 | ✅ CPU 队列无此限制 |
+| 节点数 | 实时 `TotalNodes`，回退 131 | 实时 `TotalNodes`，回退 1368 | 实时 `TotalNodes`，回退 434 |
+| DTK 模块 | `compiler/dtk-26.04` | `compiler/rocm/dtk-26.04` | `compiler/dtk/26.04` |
+| Python module | 无需额外加载 | `python/3.8.10` | `python/3.8.10` |
+| 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）| gfx906（更老，无 BF16/MFMA）|
 
 ## 隐私
 
