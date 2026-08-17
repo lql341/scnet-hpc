@@ -12,6 +12,7 @@
 - 内存上限是 `cpus-per-task × DefMemPerCPU`，想加内存**只能加 CPU 核数**
 - 登录节点可能**缺共享库，import 不了 torch**——所有验证都得提交作业
 - 计算节点**完全无外网**，任何运行时下载的库都会炸
+- 系统 `/tmp` 通常不跨节点共享，测试任务必须把临时目录建在**共享家目录**
 - 作业脚本缺 `exit $rc` 会让 `sacct` **显示假的 COMPLETED**
 - 国产加速器的软件栈落后于上游，**Triton 之类的基础设施可能整个不可用**，
   连带否掉一批推理框架
@@ -87,6 +88,8 @@ cd scnet-hpc
 
 内存按 profile 里的 `DEF_MEM_PER_CPU` 自动算（这个集群超一点就被拒），并自动带上
 `--gres`、`module load`、venv 激活、离线环境变量，以及那个关键的 `exit $rc`。
+脚本还会创建 `$HOME/.scnet-hpc/tmp/$SLURM_JOB_ID`，并把 `TMPDIR`、`TMP`、`TEMP`
+统一指向这个共享家目录；远端测试任务不使用系统 `/tmp`。
 
 生成后按脚本给出的提示上传提交（它会打印带你用户名的完整命令）：
 
@@ -151,6 +154,7 @@ clusters/
 ├── zzeshell.conf               海光 BW1000 DCU（郑州）
 ├── kseshell.conf               海光 Z100 DCU（昆山）
 ├── wuzhshell.conf              海光 Z100 DCU（乌镇）
+├── xianshell.conf              海光 Z100 DCU（西安）
 └── .cache/                     动态探测缓存（gitignore）
 scripts/
 ├── _common.sh                  profile 加载（被其他脚本 source）
@@ -177,19 +181,20 @@ references/
 | `zzeshell` | 超算互联网 · 郑州 | 海光 BW1000 DCU (gfx936) ×8/节点, 64GB/卡 | 仅 DCU（强制申请）|
 | `kseshell` | 超算互联网 · 昆山 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
 | `wuzhshell` | 超算互联网 · 乌镇 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
+| `xianshell` | 超算互联网 · 西安 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列（DCU 队列强制申请） |
 
 多个集群的差异说明了为什么要把参数抽成 profile：
 
-| | zzeshell | kseshell | wuzhshell |
-|---|---|---|---|
-| SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 | 按平台 profile 填写 |
-| `DefMemPerCPU` | 3800 MB | 3569 MB | 3634 MB |
-| 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` | `wzhcnormal` / `wzhdnormal` |
-| 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 | ✅ CPU 队列无此限制 |
-| 节点数 | 实时 `TotalNodes`，回退 131 | 实时 `TotalNodes`，回退 1368 | 实时 `TotalNodes`，回退 434 |
-| DTK 模块 | `compiler/dtk-26.04` | `compiler/rocm/dtk-26.04` | `compiler/dtk/26.04` |
-| Python module | 无需额外加载 | `python/3.8.10` | `python/3.8.10` |
-| 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）| gfx906（更老，无 BF16/MFMA）|
+| | zzeshell | kseshell | wuzhshell | xianshell |
+|---|---|---|---|---|
+| SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 | 按平台 profile 填写 | 按平台 profile 填写 |
+| `DefMemPerCPU` | 3800 MB | 3569 MB | 3634 MB | 3570 MB |
+| 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` | `wzhcnormal` / `wzhdnormal` | `xahcnormal` / `xahdnormal` |
+| 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 | ✅ CPU 队列无此限制 | ✅ 使用 CPU 队列 |
+| 节点数 | 实时 `TotalNodes`，回退 131 | 实时 `TotalNodes`，回退 1368 | 实时 `TotalNodes`，回退 434 | 实时 `TotalNodes`，回退 465 |
+| DTK 模块 | `compiler/dtk/26.04` | `compiler/dtk/26.04` | `compiler/dtk/26.04` | `compiler/dtk/26.04` |
+| Python module | 无需额外加载 | `python/3.8.10` | `python/3.8.10` | `python/3.8.10` |
+| 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）| gfx906（更老，无 BF16/MFMA）| gfx906（平台 PyTorch 无 FP8）|
 
 ## 隐私
 
