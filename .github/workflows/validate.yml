@@ -1,0 +1,34 @@
+name: Validate skill
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate shell syntax
+        run: |
+          for script in scripts/*.sh tests/*.sh; do
+            bash -n "$script"
+          done
+
+      - name: Validate Python syntax
+        run: python3 -m py_compile scripts/compute-probe.py
+
+      - name: Test job generation
+        run: bash tests/test-new-job.sh
+
+      - name: Check repository hygiene
+        run: |
+          git diff --check
+          if git grep -nE 'BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|(^|[^A-Za-z])(api[_-]?key|token|password)[[:space:]]*[:=][[:space:]]*[^<[:space:]]+' -- ':!*.md' ':!.github/**'; then
+            echo "疑似凭据进入仓库" >&2
+            exit 1
+          fi

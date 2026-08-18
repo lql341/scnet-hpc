@@ -32,7 +32,8 @@
 > 用 `./scripts/setup-ssh.sh --cluster <集群短名> <私钥路径> <用户名>` 配好并验证能连上。
 > 公开 profile 里的 `KEY_NAME_MARKER` 是占位符，所以需要显式传入用户名。
 
-它会自己找到私钥文件、挑对 profile、装好后测试连接。
+AI 助手会根据你提供的私钥路径和集群短名调用脚本，并在安装后测试连接。多 profile
+环境必须明确指定 `--cluster`；脚本不会自行扫描或上传 `~/Downloads` 中的其他文件。
 
 **手工安装：**
 
@@ -53,8 +54,9 @@ cd scnet-hpc
 ./scripts/install.sh --link       # 符号链接，改仓库立即生效（开发用）
 ```
 
-装完之后，Codex / Claude Code 里凡是涉及超算集群的任务会自动加载这个 skill，
-也可以直接输入 `/scnet-hpc` 调用。
+装完之后，Codex / Claude Code / OpenCode 可在任务匹配时自动加载这个 skill。
+在当前本机共享架构中，Codex 可用 `$scnet-hpc` 或 `/skills` 选择；Claude Code 可按
+其 skill 命令方式调用；OpenCode 会从 Claude 的共享 skills 目录自动发现它。
 
 ## 配置连接
 
@@ -84,6 +86,8 @@ cd scnet-hpc
 
 ```bash
 ./scripts/new-job.sh --cluster zzeshell myjob 8 32 01:30:00    # 8 卡, 32 核, 1.5 小时
+./scripts/new-job.sh --cluster kseshell --cpu-only build 0 32 01:00:00
+./scripts/new-job.sh --cluster kseshell --partition kshdAI probe 1 8 00:10:00
 ```
 
 内存按 profile 里的 `DEF_MEM_PER_CPU` 自动算（这个集群超一点就被拒），并自动带上
@@ -100,6 +104,10 @@ ssh zzeshell 'mkdir -p ~/scripts/logs && sbatch --test-only ~/scripts/myjob.slur
 
 `--test-only` 先验证配额合法，不真排队——返回 `Job N to start at <时间>` 就说明
 参数没问题，去掉 `--test-only` 正式提交。
+
+有独立 CPU 队列的 profile 可使用 `--cpu-only`，脚本会选择 `PARTITION_CPU` 并省略
+`--gres`。`--partition <名称>` 可显式覆盖默认分区；覆盖时仍需根据该分区决定是否
+申请加速器。
 
 ## 动态刷新集群规则
 
@@ -165,6 +173,8 @@ scripts/
 ├── compute-probe.py            计算节点能力探针的 Python 实现
 ├── new-job.sh                  生成作业脚本
 └── install.sh                  安装 skill
+tests/
+└── test-new-job.sh             CPU/DCU 分区、资源和输入校验回归测试
 references/
 ├── setup.md                    连接配置详解、平台差异
 ├── environment.md              环境栈、装依赖、目录约定、迁移注意
@@ -200,7 +210,8 @@ references/
 
 仓库里不含私钥、token、个人用户名或密钥指纹。公开 profile 中的
 `KEY_NAME_MARKER` 和 `LOGIN_NODES` 使用占位符/示意值，不包含真实节点名。
-集群主机名和端口是平台公开信息。
+profile 中的 SSH 接入端点只应来自平台面向用户公开提供的连接信息；内部登录节点、
+个人白名单信息和未公开地址不得写入仓库。
 
 `new-job.sh` 生成脚本时会把本机用户名展开进日志路径（`#SBATCH` 是注释行，
 Slurm 不做变量展开，写 `$USER` 会导致作业失败），所以**生成的 `.slurm` 文件含
