@@ -1,8 +1,38 @@
 # scnet-hpc
 
+[中文说明](#为什么需要这个) · [English quick start](references/quickstart-en.md)
+
 在国产超算集群上工作的 Codex / Claude Code skill —— 从个人电脑配置连接、提交 Slurm 作业、交互式调试、排查失败。
 
 面向超算互联网（scnet.cn）系列集群，支持多集群。集群参数存在 `clusters/*.conf`，脚本从 profile 读取，新增集群只需加一个配置文件。
+
+## English overview
+
+`scnet-hpc` is a shared Codex, Claude Code, and OpenCode skill for working on SCNet HPC
+clusters. It covers SSH setup, Slurm resource requests, CPU/DCU job generation, login-node
+versus compute-node workflows, offline environments, and compatibility checks.
+
+Current profiles and accelerator-specific guidance focus mainly on Hygon DCU/DTK systems.
+The scheduling and diagnostic workflow can be reused on other SCNet accelerators, but hardware
+and software capabilities must be verified on the target cluster. As the international SCNet
+service develops, overseas cluster parameters should be added as separate profiles instead of
+being inferred from domestic clusters.
+
+```bash
+git clone https://github.com/lql341/scnet-hpc.git
+cd scnet-hpc
+./scripts/install.sh
+
+# Inspect available cluster profiles.
+ls clusters/*.conf
+
+# Generate an accelerator job or a CPU-only job.
+./scripts/new-job.sh --cluster <cluster> myjob 1 8 00:20:00
+./scripts/new-job.sh --cluster <cluster> --cpu-only build 0 32 01:00:00
+```
+
+See [the English quick start](references/quickstart-en.md) for connection setup, submission,
+monitoring, and troubleshooting. Detailed cluster notes remain in Chinese for now.
 
 ## 为什么需要这个
 
@@ -176,6 +206,7 @@ scripts/
 tests/
 └── test-new-job.sh             CPU/DCU 分区、资源和输入校验回归测试
 references/
+├── quickstart-en.md            English SSH, Slurm, CPU/DCU, and troubleshooting quick start
 ├── setup.md                    连接配置详解、平台差异
 ├── environment.md              环境栈、装依赖、目录约定、迁移注意
 ├── troubleshooting.md          排查手册、分层调试策略

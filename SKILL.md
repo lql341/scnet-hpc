@@ -1,6 +1,6 @@
 ---
 name: scnet-hpc
-description: 在超算互联网（SCNet）集群上配置 SSH、使用 Slurm、申请 CPU/DCU 资源、提交和排查作业、安装依赖及验证国产加速器软件兼容性。当前 profile 和深度验证以海光 DCU/DTK/gfx9xx 为主；其他 SCNet 芯片可复用调度与排障流程，但必须以对应集群实测为准。当用户提到 SCNet、超算互联网、Slurm 作业、登录/计算节点、海光 DCU、DTK、gfx9xx、sbatch/srun 或集群 profile 时使用。
+description: 在超算互联网（SCNet）集群上配置 SSH、使用 Slurm、申请 CPU/DCU 资源、提交和排查作业、安装依赖及验证国产加速器兼容性；当前深度验证以海光 DCU/DTK/gfx9xx 为主。Use for SCNet HPC tasks involving SSH setup, Slurm jobs, login versus compute nodes, CPU/DCU resource requests, Hygon DCU, DTK, gfx9xx, sbatch/srun, offline compute nodes, cluster profiles, or accelerator compatibility. Other SCNet accelerators must be verified on their target cluster.
 ---
 
 # 国产超算集群使用规范
@@ -35,6 +35,10 @@ cat clusters/<集群短名>.conf     # 看具体参数
 | `references/adding-cluster.md` | 新增集群的完整步骤 |
 | `references/hygon-dcu-development.md` | 海光 DCU 开发流程、DTK 工具库与官方资源索引 |
 | `references/software-compatibility.md` | 国产超算上的软件兼容性排查、验证分层与公开报告脱敏 |
+| `references/quickstart-en.md` | English quick start for SSH, Slurm, CPU/DCU jobs, and troubleshooting |
+
+用户使用英文提问或需要英文操作说明时，读取 `references/quickstart-en.md`；集群具体
+参数仍以 `clusters/*.conf` 为准，不从英文示例猜测。
 
 ## 换机器
 
