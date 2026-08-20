@@ -42,19 +42,14 @@ jobs:
 
       - name: Install dsh-scnet dependencies
         working-directory: dsh-scnet
-        run: npm install --no-package-lock
+        run: npm install --no-package-lock --ignore-scripts
 
       - name: Validate dsh-scnet
         working-directory: dsh-scnet
-        run: |
-          node --check index.mjs
-          for script in skills/scnet-hpc/scripts/*.sh; do
-            bash -n "$script"
-          done
-          npm pack --dry-run
+        run: npm run validate
 
       - name: Open sync pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.DSH_SCNET_PAT }}
           path: dsh-scnet
