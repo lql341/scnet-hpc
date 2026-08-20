@@ -1,7 +1,7 @@
 interface:
   display_name: "SCNet HPC"
   short_description: "Operate SCNet clusters with SSH, Slurm, and DCU profiles"
-  default_prompt: "Use $scnet-hpc to inspect the selected cluster profile and prepare a validated Slurm workflow."
+  default_prompt: "Use $scnet-hpc to inspect the selected cluster profile and prepare a validated Slurm workflow. 使用 $scnet-hpc 检查集群 profile 并准备经过验证的 Slurm 工作流。"
 
 policy:
   allow_implicit_invocation: true

@@ -1,7 +1,19 @@
 # scnet-hpc
 
+[中文](README_CN.md) | English
+
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
-profile-based SSH and Slurm workflows.
+profile-based SSH and Slurm workflows. It complements the [SCNet desktop client](https://www.scnet.cn/ui/mall/client/download),
+which provides official downloads for Windows 10+, macOS 12 Monterey+ (ARM and x86), and
+Android preview builds.
+
+Supported local operating systems:
+
+- **Linux:** natively supported by the repository scripts;
+- **macOS:** natively supported by the repository scripts;
+- **Windows:** the official SCNet client supports Windows 10 and later, but this repository does
+  not provide native Windows script entry points. Use WSL2 for the repository workflows.
+  Git Bash may support some commands, but it is not a fully validated environment.
 
 It provides:
 
@@ -157,4 +169,6 @@ while replacing identifying infrastructure details with placeholders.
 
 ## License
 
-MIT
+This project is released under the [MIT License](LICENSE). Subject to the license terms, the software may be used, copied, modified, merged, published, sublicensed, and distributed, including for commercial purposes.
+
+Redistributions must retain the copyright notice and the MIT license notice. The software is provided “as is,” without warranties of any kind; users are responsible for evaluating the suitability and risks of the code, scripts, cluster profiles, and generated outputs for their own environment.

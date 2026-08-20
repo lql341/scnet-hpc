@@ -7,7 +7,12 @@ description: Configure and operate SCNet HPC clusters through SSH and Slurm, inc
 
 Operate SCNet clusters from repository profiles and target-cluster evidence. The included
 accelerator guidance is validated primarily for Hygon DCU/DTK and `gfx9xx`; do not transfer
-those capability conclusions to other accelerator stacks.
+those capability conclusions to other accelerator stacks. The repository scripts support Linux
+and macOS natively. On Windows, use WSL2; native Windows execution is not supported.
+
+## 中文说明
+
+本技能用于通过 SSH 和 Slurm 操作 SCNet 超算集群，覆盖基于 profile 的资源申请、作业生成与诊断、环境准备，以及加速器兼容性验证。Linux 和 macOS 可直接运行仓库脚本；Windows 不提供原生脚本入口，建议使用 WSL2。官方 SCNet 客户端支持 Windows 10 及以上、macOS 12 Monterey 及以上（ARM/x86），下载地址见 [SCNet 客户端下载页](https://www.scnet.cn/ui/mall/client/download)。
 
 ## Source of truth
 
