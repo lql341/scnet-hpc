@@ -1,254 +1,159 @@
 # scnet-hpc
 
-[中文说明](#为什么需要这个) · [English quick start](references/quickstart-en.md)
+`scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
+profile-based SSH and Slurm workflows.
 
-在国产超算集群上工作的 Codex / Claude Code skill —— 从个人电脑配置连接、提交 Slurm 作业、交互式调试、排查失败。
+It provides:
 
-面向超算互联网（scnet.cn）系列集群，支持多集群。集群参数存在 `clusters/*.conf`，脚本从 profile 读取，新增集群只需加一个配置文件。
+- SSH configuration for SCNet access endpoints;
+- Slurm job generation for CPU and accelerator partitions;
+- cluster discovery and refresh probes;
+- login-node and compute-node workflow separation;
+- offline dependency and shared-temporary-directory conventions;
+- Hygon DCU/DTK compatibility guidance and compute-node verification.
 
-## English overview
+The current accelerator-specific evidence focuses on Hygon DCU systems. Profiles for other
+accelerators can reuse the connection and scheduling structure, but their software capabilities
+must be verified independently.
 
-`scnet-hpc` is a shared Codex, Claude Code, and OpenCode skill for working on SCNet HPC
-clusters. It covers SSH setup, Slurm resource requests, CPU/DCU job generation, login-node
-versus compute-node workflows, offline environments, and compatibility checks.
+## Repository structure
 
-Current profiles and accelerator-specific guidance focus mainly on Hygon DCU/DTK systems.
-The scheduling and diagnostic workflow can be reused on other SCNet accelerators, but hardware
-and software capabilities must be verified on the target cluster. As the international SCNet
-service develops, overseas cluster parameters should be added as separate profiles instead of
-being inferred from domestic clusters.
+```text
+scnet-hpc/
+├── SKILL.md                 Skill entrypoint, routing, and operational invariants
+├── agents/
+│   └── openai.yaml          Codex UI metadata
+├── clusters/
+│   ├── _template.conf       Cluster profile template
+│   └── <cluster>.conf       Versioned cluster profiles
+├── scripts/
+│   ├── _common.sh           Profile loading and shared functions
+│   ├── setup-ssh.sh         SSH configuration
+│   ├── new-job.sh           Slurm script generation
+│   ├── probe-cluster.sh     Initial cluster discovery
+│   ├── refresh-cluster.sh   Dynamic profile refresh
+│   ├── run-compute-probe.sh Compute-node probe submission
+│   ├── compute-probe.py     Accelerator capability probe
+│   └── install.sh           Skill installation
+├── references/              Operation-specific procedures
+└── tests/                   Script regression tests
+```
+
+Cluster profiles remain at the repository root because they are executable configuration
+consumed directly by the scripts. `references/` contains instructions loaded only for the
+relevant operation.
+
+## Installation
 
 ```bash
 git clone https://github.com/lql341/scnet-hpc.git
 cd scnet-hpc
 ./scripts/install.sh
+```
 
-# Inspect available cluster profiles.
+Installation modes:
+
+```bash
+./scripts/install.sh --project  # Install into the current project
+./scripts/install.sh --codex    # Select the Codex skill directory
+./scripts/install.sh --claude   # Select the Claude Code skill directory
+./scripts/install.sh --link     # Link the repository for local development
+```
+
+Existing installations are moved to a timestamped backup before replacement.
+
+## Cluster selection
+
+```bash
 ls clusters/*.conf
+sed -n '1,220p' clusters/<cluster>.conf
+```
 
-# Generate an accelerator job or a CPU-only job.
-./scripts/new-job.sh --cluster <cluster> myjob 1 8 00:20:00
+Profiles contain connection endpoints, scheduler limits, partition names, hardware descriptions,
+module selections, network observations, and known limitations. Dynamic observations are written
+to `clusters/.cache/<cluster>.auto.conf` and can override the corresponding versioned fields.
+
+When multiple profiles exist, pass `--cluster <name>` explicitly.
+
+## SSH configuration
+
+Obtain the private key from the SCNet console, then run:
+
+```bash
+./scripts/setup-ssh.sh --cluster <cluster> <private-key-file> <username>
+```
+
+The script copies the key to `~/.ssh/id_rsa_<cluster>`, adds a missing host entry, configures
+connection reuse and keepalive, and verifies the connection. It does not replace an existing SSH
+host block. See [`references/setup.md`](references/setup.md) for manual configuration and diagnosis.
+
+## Job generation
+
+```bash
+./scripts/new-job.sh --cluster <cluster> train 1 8 00:20:00
 ./scripts/new-job.sh --cluster <cluster> --cpu-only build 0 32 01:00:00
+./scripts/new-job.sh --cluster <cluster> --partition <partition> probe 1 8 00:10:00
 ```
 
-See [the English quick start](references/quickstart-en.md) for connection setup, submission,
-monitoring, and troubleshooting. Detailed cluster notes remain in Chinese for now.
+The generator derives a conservative memory request from `DEF_MEM_PER_CPU`, applies the
+profile's GRES and module settings, configures offline-mode variables when needed, places
+temporary files under shared home storage, and propagates the workload exit code.
 
-## 为什么需要这个
+Review the generated `.slurm` file before submission. Validate scheduler acceptance with
+`sbatch --test-only` when supported. Remove `--test-only` only when actual submission is intended.
 
-国产超算的一些约束跟公有云/本地 GPU 机器差别很大，不知道就会反复踩：
-
-- QOS 可能**强制每个作业申请加速器**，纯 CPU 作业直接被拒
-- 内存上限是 `cpus-per-task × DefMemPerCPU`，想加内存**只能加 CPU 核数**
-- 登录节点可能**缺共享库，import 不了 torch**——所有验证都得提交作业
-- 计算节点**完全无外网**，任何运行时下载的库都会炸
-- 系统 `/tmp` 通常不跨节点共享，测试任务必须把临时目录建在**共享家目录**
-- 作业脚本缺 `exit $rc` 会让 `sacct` **显示假的 COMPLETED**
-- 国产加速器的软件栈落后于上游，**Triton 之类的基础设施可能整个不可用**，
-  连带否掉一批推理框架
-
-这些都写进了 skill，附带实测验证过的脚本。
-
-## 安装
-
-**如果你在用 Codex、Claude Code（或其他能执行命令的 AI 助手），直接把下面这段话发给它：**
-
-> 帮我安装 scnet-hpc 这个 AI 助手 skill。
-> 从 https://github.com/lql341/scnet-hpc 克隆到本地（放哪都行，我不常动它），
-> 然后运行仓库里的 `./scripts/install.sh`。
-> 装完告诉我有哪些集群 profile 可用（`ls clusters/*.conf`）。
-> 接着帮我配置连接：我的私钥在 `~/Downloads/` 下，是从超算平台控制台下载的
-> `.txt` 文件，文件名形如 `<用户名>_<主机名>_RsaKeyExpireTime_<日期>.txt`。
-> 用 `./scripts/setup-ssh.sh --cluster <集群短名> <私钥路径> <用户名>` 配好并验证能连上。
-> 公开 profile 里的 `KEY_NAME_MARKER` 是占位符，所以需要显式传入用户名。
-
-AI 助手会根据你提供的私钥路径和集群短名调用脚本，并在安装后测试连接。多 profile
-环境必须明确指定 `--cluster`；脚本不会自行扫描或上传 `~/Downloads` 中的其他文件。
-
-**手工安装：**
+## Profile refresh
 
 ```bash
-git clone https://github.com/lql341/scnet-hpc.git
-cd scnet-hpc
-./scripts/install.sh
+./scripts/refresh-cluster.sh --cluster <cluster>
+./scripts/refresh-cluster.sh --cluster <cluster> --compute
+./scripts/refresh-cluster.sh --cluster <cluster> --dry-run
 ```
 
-`install.sh` 装到用户级（所有项目可用）。默认优先识别 Codex 配置目录
-`~/.codex/skills`，否则回退到 Claude Code 的 `~/.claude/skills`。已有安装先备份。
-其他方式：
+The default refresh is read-only on the login node. `--compute` submits a small Slurm job and
+therefore consumes cluster resources.
+
+## Adding a cluster
+
+After establishing a temporary working SSH alias:
 
 ```bash
-./scripts/install.sh --project    # 只装到当前项目的 .codex/skills/ 或 .claude/skills/
-./scripts/install.sh --codex      # 强制安装到 Codex
-./scripts/install.sh --claude     # 强制安装到 Claude Code
-./scripts/install.sh --link       # 符号链接，改仓库立即生效（开发用）
+./scripts/probe-cluster.sh <ssh-alias> <cluster-name> \
+  > clusters/<cluster-name>.conf
 ```
 
-装完之后，Codex / Claude Code / OpenCode 可在任务匹配时自动加载这个 skill。
-在当前本机共享架构中，Codex 可用 `$scnet-hpc` 或 `/skills` 选择；Claude Code 可按
-其 skill 命令方式调用；OpenCode 会从 Claude 的共享 skills 目录自动发现它。
+Complete fields that cannot be established from the login node, particularly accelerator
+architecture, module selection, CPU-only partition behavior, and compute-node network access.
+Then configure the permanent SSH alias and run a bounded validation job. See
+[`references/adding-cluster.md`](references/adding-cluster.md).
 
-## 配置连接
+## References
 
-从超算平台控制台下载私钥（`.txt` 文件），然后：
+| Document | Scope |
+|---|---|
+| [`setup.md`](references/setup.md) | SSH configuration and connection failures |
+| [`environment.md`](references/environment.md) | Modules, Python environments, dependencies, and storage |
+| [`troubleshooting.md`](references/troubleshooting.md) | Slurm, logs, runtime, network, and accelerator failures |
+| [`adding-cluster.md`](references/adding-cluster.md) | Profile creation and cluster validation |
+| [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | Hygon DCU/DTK development resources |
+| [`software-compatibility.md`](references/software-compatibility.md) | Compatibility validation and public reporting |
+| [`quickstart-en.md`](references/quickstart-en.md) | English operating guide |
+
+## Validation
 
 ```bash
-./scripts/setup-ssh.sh --cluster <集群短名> ~/Downloads/<用户名>_<集群主机>_RsaKeyExpireTime_<日期>.txt <用户名>
+bash tests/test-new-job.sh
 ```
 
-只有一个集群 profile 时可省略 `--cluster`。公开 profile 使用占位符，所以用户名
-需要显式传入；如果在本机私有 profile 或 `~/.ssh/config` 里补齐了
-`KEY_NAME_MARKER`，脚本仍可从私钥文件名自动推断。
+The local test covers accelerator, CPU-only, explicit-partition, and invalid-input paths without
+submitting remote jobs.
 
-脚本会做这些事，重复运行只补缺失项：
+## Security and publication
 
-- 私钥装到 `~/.ssh/id_rsa_<集群短名>`，权限 600
-- 写 `~/.ssh/config`（含长连接复用和保活，第二条命令起从 ~2s 降到 ~0.5s）
-- macOS 上清除下载文件的隔离属性、启用 Keychain
-- 测试连接并报告登录到了哪台节点
-
-之后 `ssh <集群短名>` 直连，比如 `ssh zzeshell`。
-
-出问题看 [`references/setup.md`](references/setup.md)——常见的是私钥过期或本机 IP
-不在平台白名单（换网络后需要去控制台加）。
-
-## 生成作业脚本
-
-```bash
-./scripts/new-job.sh --cluster zzeshell myjob 8 32 01:30:00    # 8 卡, 32 核, 1.5 小时
-./scripts/new-job.sh --cluster kseshell --cpu-only build 0 32 01:00:00
-./scripts/new-job.sh --cluster kseshell --partition kshdAI probe 1 8 00:10:00
-```
-
-内存按 profile 里的 `DEF_MEM_PER_CPU` 自动算（这个集群超一点就被拒），并自动带上
-`--gres`、`module load`、venv 激活、离线环境变量，以及那个关键的 `exit $rc`。
-脚本还会创建 `$HOME/.scnet-hpc/tmp/$SLURM_JOB_ID`，并把 `TMPDIR`、`TMP`、`TEMP`
-统一指向这个共享家目录；远端测试任务不使用系统 `/tmp`。
-
-生成后按脚本给出的提示上传提交（它会打印带你用户名的完整命令）：
-
-```bash
-scp myjob.slurm zzeshell:/public/home/你的用户名/scripts/
-ssh zzeshell 'mkdir -p ~/scripts/logs && sbatch --test-only ~/scripts/myjob.slurm'
-```
-
-`--test-only` 先验证配额合法，不真排队——返回 `Job N to start at <时间>` 就说明
-参数没问题，去掉 `--test-only` 正式提交。
-
-有独立 CPU 队列的 profile 可使用 `--cpu-only`，脚本会选择 `PARTITION_CPU` 并省略
-`--gres`。`--partition <名称>` 可显式覆盖默认分区；覆盖时仍需根据该分区决定是否
-申请加速器。
-
-## 动态刷新集群规则
-
-连接参数 `SSH_HOST` / `SSH_PORT` 写死在 profile；容易变化的调度器、内存上限、
-分区、网络可达性和登录节点缺库，可以动态探测：
-
-```bash
-./scripts/refresh-cluster.sh --cluster <集群短名>          # 登录节点只读探测
-./scripts/refresh-cluster.sh --cluster <集群短名> --compute # 额外提交计算节点探针
-./scripts/refresh-cluster.sh --cluster <集群短名> --dry-run  # 只看结果，不写缓存
-```
-
-结果写入 `clusters/.cache/<集群短名>.auto.conf`，后续脚本自动加载并覆盖
-profile 的同名字段。删除缓存文件即可回退；生成作业时也可用
-`./scripts/new-job.sh --refresh ...` 先刷新，或用 `--no-auto` 忽略缓存。
-
-分区节点数 `NODE_COUNT` 默认实时查询当前 `PARTITION`，不写死；查不到时才回退到
-cache/profile。要关闭实时查询可设置 `SCNET_HPC_LIVE_NODE_COUNT=no`。
-
-## 新增集群
-
-**发给 AI 助手：**
-
-> 我要把一个新的超算集群加进 scnet-hpc。集群信息：主机名 `<主机名>`，
-> SSH 端口 `<端口>`，私钥在 `<路径>`。
-> 先手工确认能 ssh 上去，然后用 `./scripts/probe-cluster.sh` 探测生成 profile，
-> 补齐它探测不到的项（加速器架构要在计算节点跑 rocminfo 或 nvidia-smi 才知道），
-> 最后用 `./scripts/setup-ssh.sh` 正式配好连接，并提交一个小作业验证。
-
-**手工：**
-
-```bash
-# 1. 先临时加个 ssh 别名，确认能连上
-# 2. 探测，自动填大部分字段
-./scripts/probe-cluster.sh <ssh别名> <集群短名> > clusters/<集群短名>.conf
-# 3. 补齐 profile 末尾列出的待确认项
-# 4. ./scripts/setup-ssh.sh --cluster <集群短名> <私钥>
-```
-
-探测脚本会自动填调度器类型、分区、`DefMemPerCPU`、QOS 的 `MinTRES`、节点规格、
-网络可达性、登录节点缺失的库等。探测不到的项留空并在末尾列出待确认清单，不瞎猜。
-
-完整步骤（含加速器能力探针）见
-[`references/adding-cluster.md`](references/adding-cluster.md)。
-
-## 结构
-
-```
-SKILL.md                        主文件：通用约束、提交、调试
-clusters/
-├── _template.conf              新集群模板
-├── zzeshell.conf               海光 BW1000 DCU（郑州）
-├── kseshell.conf               海光 Z100 DCU（昆山）
-├── wuzhshell.conf              海光 Z100 DCU（乌镇）
-├── xianshell.conf              海光 Z100 DCU（西安）
-└── .cache/                     动态探测缓存（gitignore）
-scripts/
-├── _common.sh                  profile 加载（被其他脚本 source）
-├── setup-ssh.sh                配置 SSH 连接
-├── probe-cluster.sh            探测集群生成 profile
-├── refresh-cluster.sh          动态刷新已有集群的规则缓存
-├── run-compute-probe.sh        在计算节点运行最小能力探针
-├── compute-probe.py            计算节点能力探针的 Python 实现
-├── new-job.sh                  生成作业脚本
-└── install.sh                  安装 skill
-tests/
-└── test-new-job.sh             CPU/DCU 分区、资源和输入校验回归测试
-references/
-├── quickstart-en.md            English SSH, Slurm, CPU/DCU, and troubleshooting quick start
-├── setup.md                    连接配置详解、平台差异
-├── environment.md              环境栈、装依赖、目录约定、迁移注意
-├── troubleshooting.md          排查手册、分层调试策略
-├── adding-cluster.md           新增集群步骤、能力探针
-├── hygon-dcu-development.md    海光 DCU 开发与 DTK 工具库索引
-└── software-compatibility.md   兼容性排查与公开报告模板
-```
-
-## 已收录的集群
-
-| 短名 | 描述 | 加速器 | 队列 |
-|---|---|---|---|
-| `zzeshell` | 超算互联网 · 郑州 | 海光 BW1000 DCU (gfx936) ×8/节点, 64GB/卡 | 仅 DCU（强制申请）|
-| `kseshell` | 超算互联网 · 昆山 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
-| `wuzhshell` | 超算互联网 · 乌镇 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列 |
-| `xianshell` | 超算互联网 · 西安 | 海光 Z100 DCU (gfx906) ×4/节点, 16GB/卡 | CPU 队列 + DCU 队列（DCU 队列强制申请） |
-
-多个集群的差异说明了为什么要把参数抽成 profile：
-
-| | zzeshell | kseshell | wuzhshell | xianshell |
-|---|---|---|---|---|
-| SSH 端口 | 按平台 profile 填写 | 按平台 profile 填写 | 按平台 profile 填写 | 按平台 profile 填写 |
-| `DefMemPerCPU` | 3800 MB | 3569 MB | 3634 MB | 3570 MB |
-| 分区 | `hx1hdnormal`（唯一）| `kshcnormal` / `kshdnormal` / `kshdAI` | `wzhcnormal` / `wzhdnormal` | `xahcnormal` / `xahdnormal` |
-| 纯 CPU 作业 | ❌ QOS 强制要 DCU | ✅ CPU 队列无此限制 | ✅ CPU 队列无此限制 | ✅ 使用 CPU 队列 |
-| 节点数 | 实时 `TotalNodes`，回退 131 | 实时 `TotalNodes`，回退 1368 | 实时 `TotalNodes`，回退 434 | 实时 `TotalNodes`，回退 465 |
-| DTK 模块 | `compiler/dtk/26.04` | `compiler/dtk/26.04` | `compiler/dtk/26.04` | `compiler/dtk/26.04` |
-| Python module | 无需额外加载 | `python/3.8.10` | `python/3.8.10` | `python/3.8.10` |
-| 加速器架构 | gfx936 | gfx906（更老，无 BF16/MFMA）| gfx906（更老，无 BF16/MFMA）| gfx906（平台 PyTorch 无 FP8）|
-
-## 隐私
-
-仓库里不含私钥、token、个人用户名或密钥指纹。公开 profile 中的
-`KEY_NAME_MARKER` 和 `LOGIN_NODES` 使用占位符/示意值，不包含真实节点名。
-profile 中的 SSH 接入端点只应来自平台面向用户公开提供的连接信息；内部登录节点、
-个人白名单信息和未公开地址不得写入仓库。
-
-`new-job.sh` 生成脚本时会把本机用户名展开进日志路径（`#SBATCH` 是注释行，
-Slurm 不做变量展开，写 `$USER` 会导致作业失败），所以**生成的 `.slurm` 文件含
-你的用户名**——`.gitignore` 已排除 `*.slurm`。
-
-`.gitignore` 还排除了 `*.key`、`id_rsa*`、`*_RsaKey*` 等，避免误提交私钥。
+Do not commit private keys, access tokens, personal usernames, internal hostnames, node names,
+job identifiers, private mirror addresses, or generated job scripts containing user-specific
+paths. Public compatibility reports should preserve reproducible environment and result data
+while replacing identifying infrastructure details with placeholders.
 
 ## License
 
