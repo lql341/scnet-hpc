@@ -1,0 +1,71 @@
+name: Sync codex-scnet-hpc
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "SKILL.md"
+      - "agents/**"
+      - "clusters/**"
+      - "references/**"
+      - "scripts/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout scnet-hpc
+        uses: actions/checkout@v7
+        with:
+          path: scnet-hpc
+          fetch-depth: 0
+
+      - name: Checkout codex-scnet-hpc
+        uses: actions/checkout@v7
+        with:
+          repository: lql341/codex-scnet-hpc
+          path: codex-scnet-hpc
+          token: ${{ secrets.DSH_SCNET_PAT }}
+          fetch-depth: 0
+
+      - name: Synchronize canonical skill
+        working-directory: codex-scnet-hpc
+        run: |
+          chmod +x sync.sh
+          ./sync.sh --src ../scnet-hpc
+
+      - name: Validate Codex plugin
+        working-directory: codex-scnet-hpc
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          plugin = json.loads(Path("plugins/scnet-hpc/.codex-plugin/plugin.json").read_text())
+          assert plugin["name"] == "scnet-hpc"
+          assert plugin["skills"] == "./skills/"
+          marketplace = json.loads(Path(".agents/plugins/marketplace.json").read_text())
+          assert any(entry["name"] == "scnet-hpc" for entry in marketplace["plugins"])
+          PY
+          for script in plugins/scnet-hpc/skills/scnet-hpc/scripts/*.sh; do bash -n "$script"; done
+          python3 -m py_compile plugins/scnet-hpc/skills/scnet-hpc/scripts/compute-probe.py
+          git diff --check
+
+      - name: Open sync pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.DSH_SCNET_PAT }}
+          path: codex-scnet-hpc
+          commit-message: "Sync scnet-hpc updates"
+          branch: sync/scnet-hpc
+          delete-branch: true
+          title: "Sync scnet-hpc updates"
+          body: |
+            Automatically synchronized from lql341/scnet-hpc@${{ github.sha }}.
+
+            The Codex skills-only Plugin wrapper is generated from the canonical Skill repository.
+            Please review the synchronized Skill content and allow the target repository validation to complete before merging.
