@@ -39,6 +39,17 @@ jobs:
           chmod +x sync.sh
           ./sync.sh --src ../scnet-hpc
 
+      - name: Overlay canonical backend entrypoints
+        working-directory: codex-scnet-hpc
+        run: |
+          dst=plugins/scnet-hpc/skills/scnet-hpc/scripts
+          cp ../scnet-hpc/scripts/setup.sh "$dst/setup.sh"
+          cp ../scnet-hpc/scripts/scnet.py "$dst/scnet.py"
+          cp ../scnet-hpc/scripts/scnet_config.py "$dst/scnet_config.py"
+          rm -rf "$dst/scnet_backends"
+          cp -R ../scnet-hpc/scripts/scnet_backends "$dst/scnet_backends"
+          chmod +x "$dst/setup.sh" "$dst/scnet.py"
+
       - name: Validate Codex plugin
         working-directory: codex-scnet-hpc
         run: |
