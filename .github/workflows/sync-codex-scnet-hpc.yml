@@ -40,6 +40,30 @@ jobs:
           chmod +x sync.sh
           ./sync.sh --src ../scnet-hpc
 
+      - name: Update downstream sync manifest
+        working-directory: codex-scnet-hpc
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("sync.sh")
+          text = path.read_text()
+          text = text.replace(
+              "setup-ssh.sh; do",
+              "setup-ssh.sh setup.sh scnet.py scnet_config.py; do",
+          )
+          marker = 'chmod +x "$DST/scripts/"*.sh "$DST/scripts/compute-probe.py"'
+          if marker in text and "scnet_backends" not in text:
+              text = text.replace(
+                  marker,
+                  'rm -rf "$DST/scripts/scnet_backends"\n'
+                  'cp -R "$SRC/scripts/scnet_backends" "$DST/scripts/scnet_backends"\n'
+                  f'{marker}\n'
+                  'chmod +x "$DST/scripts/scnet.py"',
+              )
+          path.write_text(text)
+          PY
+
       - name: Overlay canonical backend entrypoints
         working-directory: codex-scnet-hpc
         run: |
