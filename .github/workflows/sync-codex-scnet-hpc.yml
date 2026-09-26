@@ -10,6 +10,7 @@ on:
       - "clusters/**"
       - "references/**"
       - "scripts/**"
+      - ".github/workflows/sync-codex-scnet-hpc.yml"
   workflow_dispatch:
 
 permissions:

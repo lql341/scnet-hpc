@@ -9,6 +9,7 @@ on:
       - "clusters/**"
       - "references/**"
       - "scripts/**"
+      - ".github/workflows/sync-dsh-scnet.yml"
   workflow_dispatch:
 
 jobs:
