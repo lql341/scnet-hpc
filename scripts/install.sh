@@ -89,12 +89,18 @@ cat <<EOF
 
 完成。下一步：
 
-  1. 配置到集群的连接：
+  1. 首次配置（不要求 Python）：
+       $DST/scripts/setup.sh
+
+  2. 查看可用 backend（Python 高级入口）：
+       python3 $DST/scripts/scnet.py backends
+
+  3. 配置到集群的 SSH 连接：
        $DST/scripts/setup-ssh.sh <私钥文件>
 
-  2. 新增另一个集群：
+  4. 新增另一个集群：
        $DST/scripts/probe-cluster.sh <ssh别名> <短名> > $DST/clusters/<短名>.conf
 
-  3. Codex 或 Claude Code 里涉及集群的任务会自动加载这个 skill，
+  5. Codex 或 Claude Code 里涉及集群的任务会自动加载这个 skill，
      也可以直接调用 /$SKILL_NAME
 EOF

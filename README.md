@@ -3,7 +3,7 @@
 [中文](README_CN.md) | English
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
-profile-based SSH and Slurm workflows. It complements the [SCNet desktop client](https://www.scnet.cn/ui/mall/client/download),
+profile-based SSH, SCNet OpenAPI, and pluggable future backends. It complements the [SCNet desktop client](https://www.scnet.cn/ui/mall/client/download),
 which provides official downloads for Windows 10+, macOS 12 Monterey+ (ARM and x86), and
 Android preview builds.
 
@@ -18,6 +18,7 @@ Supported local operating systems:
 It provides:
 
 - SSH configuration for SCNet access endpoints;
+- structured resource and job operations through the SCNet OpenAPI control plane;
 - Slurm job generation for CPU and accelerator partitions;
 - cluster discovery and refresh probes;
 - login-node and compute-node workflow separation;
@@ -39,6 +40,8 @@ scnet-hpc/
 │   ├── _template.conf       Cluster profile template
 │   └── <cluster>.conf       Versioned cluster profiles
 ├── scripts/
+│   ├── scnet.py              Backend-neutral CLI
+│   ├── scnet_backends/       SSH, OpenAPI, and external adapters
 │   ├── _common.sh           Profile loading and shared functions
 │   ├── setup-ssh.sh         SSH configuration
 │   ├── new-job.sh           Slurm script generation
@@ -74,6 +77,37 @@ Installation modes:
 
 Existing installations are moved to a timestamped backup before replacement.
 
+## First-use configuration panel
+
+On a new computer, run:
+
+```bash
+./scripts/setup.sh
+```
+
+The Bash panel selects a default profile and backend, configures SSH, and records non-secret
+OpenAPI region hints without requiring Python. It saves only non-secret choices under
+`~/.config/scnet-hpc/config.json` (or `$XDG_CONFIG_HOME/scnet-hpc/config.json`); AK/SK and
+tokens are never written there.
+
+Developers can use the richer Python panel, which validates OpenAPI credentials and discovers
+authorized regions and schedulers:
+
+```bash
+python3 scripts/scnet.py setup
+```
+
+Check the result without changing anything:
+
+```bash
+python3 scripts/scnet.py doctor
+python3 scripts/scnet.py --backend openapi doctor
+```
+
+Use `./scripts/setup.sh --skip-connect` to save selections without installing a key or
+contacting a remote service.
+The default backend can still be overridden per command with `--backend`.
+
 ## Cluster selection
 
 ```bash
@@ -86,6 +120,36 @@ module selections, network observations, and known limitations. Dynamic observat
 to `clusters/.cache/<cluster>.auto.conf` and can override the corresponding versioned fields.
 
 When multiple profiles exist, pass `--cluster <name>` explicitly.
+
+## Backend selection
+
+SSH remains the default. List built-in and discovered backends with:
+
+```bash
+python3 scripts/scnet.py backends
+```
+
+Examples:
+
+```bash
+python3 scripts/scnet.py --backend ssh --cluster <cluster> queues
+python3 scripts/scnet.py --backend openapi clusters
+python3 scripts/scnet.py --backend openapi --region <region-id> job <job-id>
+```
+
+Selection precedence is `--backend`, `SCNET_HPC_BACKEND`, profile `DEFAULT_BACKEND`, then
+the saved setup-panel default, then profile `DEFAULT_BACKEND`, then `ssh`. The client does not
+silently fall back between backends.
+
+OpenAPI credentials are injected through environment variables or a host credential manager;
+never put AK, SK, or tokens in a profile. See
+[`references/openapi.md`](references/openapi.md). MCP bridges and platform connectors can be
+registered through the external protocol in
+[`references/backends.md`](references/backends.md).
+
+OpenAPI supports remote directory creation and automatically switches files larger than 8 MiB
+to the documented chunked upload flow. Use `--dry-run` to preview mutations without contacting
+the backend.
 
 ## SSH configuration
 
@@ -150,15 +214,18 @@ Then configure the permanent SSH alias and run a bounded validation job. See
 | [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | Hygon DCU/DTK development resources |
 | [`software-compatibility.md`](references/software-compatibility.md) | Compatibility validation and public reporting |
 | [`quickstart-en.md`](references/quickstart-en.md) | English operating guide |
+| [`backends.md`](references/backends.md) | Backend selection, capabilities, and extension protocol |
+| [`openapi.md`](references/openapi.md) | OpenAPI credentials, commands, and validation boundaries |
 
 ## Validation
 
 ```bash
 bash tests/test-new-job.sh
+python3 tests/test-backends.py
 ```
 
-The local test covers accelerator, CPU-only, explicit-partition, and invalid-input paths without
-submitting remote jobs.
+Local tests cover job generation, profile parsing, OpenAPI signing and normalization, and the
+external backend contract. They do not submit remote jobs or call the live OpenAPI.
 
 ## Security and publication
 

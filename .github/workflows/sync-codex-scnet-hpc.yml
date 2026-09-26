@@ -52,7 +52,8 @@ jobs:
           assert any(entry["name"] == "scnet-hpc" for entry in marketplace["plugins"])
           PY
           for script in plugins/scnet-hpc/skills/scnet-hpc/scripts/*.sh; do bash -n "$script"; done
-          python3 -m py_compile plugins/scnet-hpc/skills/scnet-hpc/scripts/compute-probe.py
+          test -x plugins/scnet-hpc/skills/scnet-hpc/scripts/setup.sh
+          python3 -m py_compile plugins/scnet-hpc/skills/scnet-hpc/scripts/*.py plugins/scnet-hpc/skills/scnet-hpc/scripts/scnet_backends/*.py
           git diff --check
 
       - name: Open sync pull request

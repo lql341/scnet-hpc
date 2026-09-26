@@ -48,6 +48,13 @@ jobs:
         working-directory: dsh-scnet
         run: npm run validate
 
+      - name: Verify canonical backend entrypoints
+        working-directory: scnet-hpc
+        run: |
+          test -x scripts/setup.sh
+          bash -n scripts/setup.sh scripts/*.sh
+          python3 -m py_compile scripts/*.py scripts/scnet_backends/*.py
+
       - name: Open sync pull request
         uses: peter-evans/create-pull-request@v8
         with:

@@ -3,8 +3,8 @@
 中文 | [English](README.md)
 
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
-的 SSH 与 Slurm 工作流完成集群连接、资源申请、作业生成、运行诊断和加速器兼容性
-验证。需要图形客户端时，可从
+的 SSH、SCNet OpenAPI 和可插拔 backend 完成集群连接、资源申请、作业生成、运行诊断
+和加速器兼容性验证。需要图形客户端时，可从
 [SCNet 客户端下载页](https://www.scnet.cn/ui/mall/client/download) 获取官方版本。
 
 支持的本地操作系统：
@@ -18,6 +18,7 @@
 主要能力：
 
 - 配置 SCNet SSH 连接；
+- 通过 SCNet OpenAPI 控制面查询资源和管理标准作业；
 - 按集群 profile 生成 CPU 和加速器分区的 Slurm 作业脚本；
 - 探测和刷新集群调度规则；
 - 区分登录节点与计算节点操作；
@@ -38,6 +39,8 @@ scnet-hpc/
 │   ├── _template.conf       集群 profile 模板
 │   └── <cluster>.conf       纳入版本管理的集群 profile
 ├── scripts/
+│   ├── scnet.py              backend 统一命令行入口
+│   ├── scnet_backends/       SSH、OpenAPI 和外部适配器
 │   ├── _common.sh           profile 加载和公共函数
 │   ├── setup-ssh.sh         SSH 配置
 │   ├── new-job.sh           Slurm 脚本生成
@@ -72,6 +75,35 @@ cd scnet-hpc
 
 替换已有安装前，脚本会将原目录移动到带时间戳的备份路径。
 
+## 首次使用配置面板
+
+新电脑上可以直接运行：
+
+```bash
+./scripts/setup.sh
+```
+
+Bash 面板会引导选择默认 profile 和 backend，可配置 SSH，也可以保存 OpenAPI 区域提示；
+不要求先安装 Python。它只把非敏感选择保存到
+`~/.config/scnet-hpc/config.json`（或 `$XDG_CONFIG_HOME/scnet-hpc/config.json`），
+不会保存 AK、SK 或 token。
+
+开发者可以使用功能更完整的 Python 面板，它会验证 OpenAPI 凭据并发现授权区域和调度器：
+
+```bash
+python3 scripts/scnet.py setup
+```
+
+配置后可以只读检查：
+
+```bash
+python3 scripts/scnet.py doctor
+python3 scripts/scnet.py --backend openapi doctor
+```
+
+使用 `./scripts/setup.sh --skip-connect` 可以只保存选择，不安装私钥，也不连接远端服务。单次命令仍可
+通过 `--backend` 覆盖默认 backend。
+
 ## 选择集群
 
 ```bash
@@ -82,6 +114,34 @@ sed -n '1,220p' clusters/<cluster>.conf
 profile 包含连接地址、调度限制、分区、硬件、module、网络观测和已知限制。
 动态探测结果写入 `clusters/.cache/<cluster>.auto.conf`，并覆盖 profile 中的同名字段。
 存在多个 profile 时，应显式传入 `--cluster <name>`。
+
+## 选择 backend
+
+SSH 仍是默认 backend。查看内置和已发现的 backend：
+
+```bash
+python3 scripts/scnet.py backends
+```
+
+示例：
+
+```bash
+python3 scripts/scnet.py --backend ssh --cluster <cluster> queues
+python3 scripts/scnet.py --backend openapi clusters
+python3 scripts/scnet.py --backend openapi --region <region-id> job <job-id>
+```
+
+选择优先级为：显式 `--backend`、`SCNET_HPC_BACKEND`、配置面板保存的默认 backend、
+profile 中的 `DEFAULT_BACKEND`、最后回退到 `ssh`。一个 backend 失败时不会静默切换到
+另一个。
+
+OpenAPI 凭据通过环境变量或宿主凭据管理器注入；不得把 AK、SK 或 token 写入 profile。
+具体配置见 [`references/openapi.md`](references/openapi.md)。未来 MCP bridge、官方
+连接器或其他平台连接方式可以通过
+[`references/backends.md`](references/backends.md) 中的外部 backend 协议注册。
+
+OpenAPI backend 现在支持创建远端目录，超过 8 MiB 的文件会自动使用官方分片上传流程。
+可以通过 `--dry-run` 预览提交、取消、目录创建和文件传输操作，而不连接 backend。
 
 ## 配置 SSH
 
@@ -146,14 +206,18 @@ profile 包含连接地址、调度限制、分区、硬件、module、网络观
 | [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | 海光 DCU/DTK 开发资料 |
 | [`software-compatibility.md`](references/software-compatibility.md) | 兼容性验证和公开报告 |
 | [`quickstart-en.md`](references/quickstart-en.md) | 英文快速操作指南 |
+| [`backends.md`](references/backends.md) | backend 选择、能力和扩展协议 |
+| [`openapi.md`](references/openapi.md) | OpenAPI 凭据、命令和验证边界 |
 
 ## 验证
 
 ```bash
 bash tests/test-new-job.sh
+python3 tests/test-backends.py
 ```
 
-本地测试覆盖加速器作业、CPU-only 作业、显式分区和非法输入，不会提交远端作业。
+本地测试覆盖作业生成、profile 解析、OpenAPI 签名与响应归一化，以及外部 backend
+协议；不会提交远端作业，也不会访问真实 OpenAPI。
 
 ## 安全与公开发布
 

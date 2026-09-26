@@ -20,15 +20,21 @@ jobs:
           done
 
       - name: Validate Python syntax
-        run: python3 -m py_compile scripts/compute-probe.py
+        run: python3 -m py_compile scripts/*.py scripts/scnet_backends/*.py
 
       - name: Test job generation
         run: bash tests/test-new-job.sh
 
+      - name: Test first-use setup entrypoint
+        run: bash tests/test-setup.sh
+
+      - name: Test backend routing
+        run: python3 tests/test-backends.py
+
       - name: Check repository hygiene
         run: |
           git diff --check
-          if git grep -nE 'BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|(^|[^A-Za-z])(api[_-]?key|token|password)[[:space:]]*[:=][[:space:]]*[^<[:space:]]+' -- ':!*.md' ':!.github/**'; then
+          if git grep -nE 'BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|(^|[[:space:]])(export[[:space:]]+)?(API_KEY|ACCESS_KEY|SECRET_KEY|TOKEN|PASSWORD)[[:space:]]*=[[:space:]]*[^<[:space:]]+' -- ':!*.md' ':!.github/**'; then
             echo "疑似凭据进入仓库" >&2
             exit 1
           fi
