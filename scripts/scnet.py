@@ -10,6 +10,7 @@ import json
 import os
 import platform
 import re
+import select
 import shlex
 import shutil
 import subprocess
@@ -219,15 +220,20 @@ def _ask_yes_no(prompt: str, default: bool = True) -> bool:
 
 
 def _choose(prompt: str, choices: list[str], default: int = 1) -> str:
+    if (
+        sys.stdin.isatty()
+        and sys.stdout.isatty()
+        and os.name == "posix"
+        and os.environ.get("TERM", "") != "dumb"
+    ):
+        return _choose_interactive(prompt, choices, default)
+
     print(prompt)
     for index, choice in enumerate(choices, 1):
         marker = "*" if index == default else " "
         print(f"  {marker} {index}. {choice}")
-    print(
-        f"请输入 1-{len(choices)} 的数字并按 Enter；"
-        f"直接按 Enter 使用带 * 的默认项 {default}。"
-    )
-    print("此面板不使用方向键；macOS、Ubuntu、Debian 终端操作相同。")
+    print(f"请输入 1-{len(choices)} 的数字并按 Enter。")
+    print(f"直接按 Enter 使用带 * 的默认项 {default}。")
     answer = _ask("选择", str(default))
     try:
         selected = int(answer)
@@ -238,12 +244,87 @@ def _choose(prompt: str, choices: list[str], default: int = 1) -> str:
     return choices[selected - 1]
 
 
+def _choose_interactive(
+    prompt: str, choices: list[str], default: int
+) -> str:
+    import termios
+    import tty
+
+    selected = max(0, min(default - 1, len(choices) - 1))
+    number = ""
+    line_count = len(choices) + 1
+
+    print(prompt)
+    print("使用 ↑/↓ 移动，Enter 确认；也可输入编号后按 Enter；q 取消。")
+
+    def render(first: bool = False) -> None:
+        if not first:
+            sys.stdout.write(f"\033[{line_count}A")
+        for index, choice in enumerate(choices):
+            pointer = "▶" if index == selected else " "
+            sys.stdout.write(
+                f"\r\033[2K  {pointer} {index + 1}. {choice}\n"
+            )
+        typed = f"编号：{number}" if number else "编号：（可直接按 Enter）"
+        sys.stdout.write(f"\r\033[2K  {typed}\n")
+        sys.stdout.flush()
+
+    old_settings = termios.tcgetattr(sys.stdin.fileno())
+    input_fd = sys.stdin.fileno()
+    render(first=True)
+    try:
+        tty.setcbreak(input_fd)
+        while True:
+            char = os.read(input_fd, 1).decode("utf-8", "ignore")
+            if char in {"\r", "\n"}:
+                if number:
+                    value = int(number)
+                    if 1 <= value <= len(choices):
+                        selected = value - 1
+                        break
+                    number = ""
+                    render()
+                    continue
+                break
+            if char == "\x1b":
+                ready, _, _ = select.select([input_fd], [], [], 0.1)
+                sequence = (
+                    os.read(input_fd, 2).decode("utf-8", "ignore")
+                    if ready
+                    else ""
+                )
+                if sequence == "[A":
+                    selected = (selected - 1) % len(choices)
+                    number = ""
+                    render()
+                elif sequence == "[B":
+                    selected = (selected + 1) % len(choices)
+                    number = ""
+                    render()
+                continue
+            if char in {"q", "Q", "\x03"}:
+                raise BackendError("用户取消配置")
+            if char in {"\x7f", "\b"}:
+                number = number[:-1]
+                render()
+                continue
+            if char.isdigit():
+                number += char
+                render()
+    finally:
+        termios.tcsetattr(
+            input_fd, termios.TCSADRAIN, old_settings
+        )
+    print(f"已选择：{selected + 1}. {choices[selected]}")
+    return choices[selected]
+
+
 def _print_terminal_help() -> None:
     system = platform.system()
     if system == "Darwin":
         print(
-            "macOS：在 Terminal 或 iTerm2 中运行；输入数字后按 Enter，"
-            "Ctrl+C 可取消。敏感输入不会回显。"
+            "macOS：在 Terminal 或 iTerm2 中可用 ↑/↓ 和 Enter，"
+            "也可输入编号；Ctrl+C 可取消。敏感输入不会回显。"
         )
         print("凭据可保存到系统自带的 macOS Keychain。")
     elif system == "Linux":
@@ -257,15 +338,18 @@ def _print_terminal_help() -> None:
             pass
         if distro in {"ubuntu", "debian"}:
             print(
-                "Ubuntu/Debian：在 Terminal 中运行；输入数字后按 Enter，"
-                "Ctrl+C 可取消。敏感输入不会回显。"
+                "Ubuntu/Debian：在 Terminal 中可用 ↑/↓ 和 Enter，"
+                "也可输入编号；Ctrl+C 可取消。敏感输入不会回显。"
             )
             print(
                 "如需安全保存 AK/SK，可安装 Secret Service 工具："
                 "sudo apt install libsecret-tools"
             )
         else:
-            print("Linux：输入数字后按 Enter；Ctrl+C 可取消。敏感输入不会回显。")
+            print(
+                "Linux：使用 ↑/↓ 和 Enter，也可输入编号；"
+                "Ctrl+C 可取消。敏感输入不会回显。"
+            )
     print()
 
 

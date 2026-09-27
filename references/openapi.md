@@ -43,10 +43,10 @@ platform credential set in macOS Keychain or Linux Secret Service; otherwise use
 variables. Region IDs, region users, schedulers, and home paths are discovered and cached as
 non-secret metadata.
 
-Terminal selection is numeric: type a number and press Enter, or press Enter to accept the item
-marked `*`. SecretKey input is intentionally invisible. This behavior is the same in macOS
-Terminal/iTerm2 and Ubuntu/Debian terminals. Ubuntu/Debian users can install `secret-tool` with
-`sudo apt install libsecret-tools`.
+Interactive terminals support ↑/↓ plus Enter and direct numeric selection. Press Enter without
+typing a number to accept the current/default item. SecretKey input is intentionally invisible.
+This behavior is the same in macOS Terminal/iTerm2 and Ubuntu/Debian terminals.
+Ubuntu/Debian users can install `secret-tool` with `sudo apt install libsecret-tools`.
 
 For an externally managed token:
 

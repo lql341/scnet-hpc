@@ -84,13 +84,82 @@ choose() {
     shift
     local choices=("$@")
     local index choice
+    if [ -t 0 ] && [ -t 2 ] && [ "${TERM:-dumb}" != "dumb" ]; then
+        local selected=0
+        local number=""
+        local key sequence value
+        local line_count=$(( ${#choices[@]} + 1 ))
+        printf '%s\n' "$prompt" >&2
+        printf '使用 ↑/↓ 移动，Enter 确认；也可输入编号后按 Enter；q 取消。\n' >&2
+
+        render_choices() {
+            local first="${1:-no}"
+            local render_index pointer typed
+            if [ "$first" != yes ]; then
+                printf '\033[%dA' "$line_count" >&2
+            fi
+            for render_index in "${!choices[@]}"; do
+                pointer=" "
+                [ "$render_index" -eq "$selected" ] && pointer="▶"
+                printf '\r\033[2K  %s %d. %s\n' \
+                    "$pointer" "$((render_index + 1))" \
+                    "${choices[$render_index]}" >&2
+            done
+            typed="编号：（可直接按 Enter）"
+            [ -n "$number" ] && typed="编号：$number"
+            printf '\r\033[2K  %s\n' "$typed" >&2
+        }
+
+        render_choices yes
+        while true; do
+            IFS= read -rsn1 key
+            case "$key" in
+                "")
+                    if [ -n "$number" ]; then
+                        value=$((10#$number))
+                        if [ "$value" -ge 1 ] \
+                            && [ "$value" -le "${#choices[@]}" ]; then
+                            selected=$((value - 1))
+                            break
+                        fi
+                        number=""
+                        render_choices
+                    else
+                        break
+                    fi
+                    ;;
+                $'\033')
+                    sequence=""
+                    IFS= read -rsn2 -t 1 sequence || true
+                    case "$sequence" in
+                        "[A") selected=$(( (selected - 1 + ${#choices[@]}) % ${#choices[@]} )); number=""; render_choices ;;
+                        "[B") selected=$(( (selected + 1) % ${#choices[@]} )); number=""; render_choices ;;
+                    esac
+                    ;;
+                q|Q) die "用户取消配置" ;;
+                $'\177')
+                    number="${number%?}"
+                    render_choices
+                    ;;
+                [0-9])
+                    number="${number}${key}"
+                    render_choices
+                    ;;
+            esac
+        done
+        printf '已选择：%d. %s\n' \
+            "$((selected + 1))" "${choices[$selected]}" >&2
+        printf '%s' "${choices[$selected]}"
+        return
+    fi
+
     printf '%s\n' "$prompt" >&2
     for index in "${!choices[@]}"; do
         printf '  %d. %s\n' "$((index + 1))" "${choices[$index]}" >&2
     done
     printf '请输入 1-%d 的数字并按 Enter；直接按 Enter 使用默认项 1。\n' \
         "${#choices[@]}" >&2
-    printf '不使用方向键；macOS、Ubuntu、Debian 终端操作相同。\n' >&2
+    printf '当前终端不支持交互导航，已使用数字输入模式。\n' >&2
     local selected
     selected=$(ask "选择" "1")
     [[ "$selected" =~ ^[0-9]+$ ]] || die "选择必须是数字"
@@ -260,17 +329,17 @@ printf '此面板只保存非敏感选择；AK/SK/token 不会写入配置文件
 case "$(uname -s)" in
     Darwin)
         printf '%s\n' \
-            "macOS：在 Terminal 或 iTerm2 中输入数字后按 Enter；Ctrl+C 可取消。" \
+            "macOS：在 Terminal 或 iTerm2 中使用 ↑/↓ 和 Enter，也可输入编号；Ctrl+C 可取消。" \
             "敏感输入不会回显；OpenAPI 凭据可保存到 macOS Keychain。" >&2
         ;;
     Linux)
         if [ -r /etc/os-release ] \
             && grep -Eq '^ID=(ubuntu|debian)$' /etc/os-release; then
             printf '%s\n' \
-                "Ubuntu/Debian：在 Terminal 中输入数字后按 Enter；Ctrl+C 可取消。" \
+                "Ubuntu/Debian：在 Terminal 中使用 ↑/↓ 和 Enter，也可输入编号；Ctrl+C 可取消。" \
                 "如需安全保存 AK/SK：sudo apt install libsecret-tools" >&2
         else
-            printf '%s\n' "Linux：输入数字后按 Enter；Ctrl+C 可取消。" >&2
+            printf '%s\n' "Linux：使用 ↑/↓ 和 Enter，也可输入编号；Ctrl+C 可取消。" >&2
         fi
         ;;
 esac

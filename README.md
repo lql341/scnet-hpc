@@ -103,8 +103,8 @@ On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Servi
 available. Otherwise inject them through environment variables.
 
 Obtain AK/SK from SCNet **Personal Center → Access Control**, where the authorization file can
-be generated and downloaded. In terminal menus, type the displayed number and press Enter;
-press Enter without a number to accept the item marked `*`. Arrow-key navigation is not used.
+be generated and downloaded. In an interactive terminal, use ↑/↓ and Enter or type a displayed
+number and press Enter. Press Enter without a number to accept the current/default item.
 On Ubuntu/Debian, install the Secret Service CLI with `sudo apt install libsecret-tools`.
 
 Check the result without changing anything:
