@@ -37,6 +37,7 @@ from scnet_credentials import (
     store_openapi_credentials,
 )
 from scnet_sdk.cli import add_notebook_parser, execute_notebook
+from scnet_version import VERSION
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -48,6 +49,11 @@ MUTATING_OPERATIONS = frozenset(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Operate SCNet through SSH, OpenAPI, or an external backend adapter."
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"scnet-hpc {VERSION}",
     )
     parser.add_argument(
         "--backend",
@@ -721,6 +727,7 @@ def _has_configuration(config: Mapping[str, Any]) -> bool:
 def _print_setup_status(config: Mapping[str, Any]) -> None:
     print("\nSCNet HPC 配置状态")
     print("===================")
+    print(f"版本：{VERSION}")
     print(f"配置目录：{config_path().parent}")
     print(f"默认 backend：{config.get('default_backend') or '未设置'}")
     print(f"默认 SSH profile：{config.get('cluster') or '未设置'}")
@@ -1530,6 +1537,7 @@ def main(argv: list[str] | None = None) -> int:
                 json.dumps(
                     {
                         "ok": True,
+                        "version": VERSION,
                         "backend": backend_name,
                         "operation": args.operation,
                         "data": data,

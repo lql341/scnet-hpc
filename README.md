@@ -2,6 +2,12 @@
 
 [中文](README_CN.md) | English
 
+Current release: **0.5.0**
+
+```bash
+python3 scripts/scnet.py --version
+```
+
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
 profile-based SSH, SCNet OpenAPI, and pluggable future backends. It complements the [SCNet desktop client](https://www.scnet.cn/ui/mall/client/download),
 which provides official downloads for Windows 10+, macOS 12 Monterey+ (ARM and x86), and
@@ -33,6 +39,8 @@ must be verified independently.
 
 ```text
 scnet-hpc/
+├── VERSION                  Synchronized SemVer release
+├── CHANGELOG.md             Release history
 ├── SKILL.md                 Skill entrypoint, routing, and operational invariants
 ├── agents/
 │   └── openai.yaml          Codex UI metadata
@@ -310,3 +318,9 @@ while replacing identifying infrastructure details with placeholders.
 This project is released under the [MIT License](LICENSE). Subject to the license terms, the software may be used, copied, modified, merged, published, sublicensed, and distributed, including for commercial purposes.
 
 Redistributions must retain the copyright notice and the MIT license notice. The software is provided “as is,” without warranties of any kind; users are responsible for evaluating the suitability and risks of the code, scripts, cluster profiles, and generated outputs for their own environment.
+
+## Versioning
+
+The source Skill, DSH package, and Codex Plugin use the same SemVer release train. `VERSION` is
+the source of truth, CLI JSON output includes the version, and release tags use `v<version>`.
+See [CHANGELOG.md](CHANGELOG.md) for user-visible changes.

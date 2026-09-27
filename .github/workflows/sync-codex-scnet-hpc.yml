@@ -54,6 +54,7 @@ jobs:
               "scnet.py",
               "scnet_config.py",
               "scnet_credentials.py",
+              "scnet_version.py",
           )
           match = re.search(r"(for file in [^;\n]+)(; do)", text)
           if match:
@@ -84,11 +85,13 @@ jobs:
       - name: Overlay canonical backend entrypoints
         working-directory: codex-scnet-hpc
         run: |
+          cp ../scnet-hpc/VERSION plugins/scnet-hpc/skills/scnet-hpc/VERSION
           dst=plugins/scnet-hpc/skills/scnet-hpc/scripts
           cp ../scnet-hpc/scripts/setup.sh "$dst/setup.sh"
           cp ../scnet-hpc/scripts/scnet.py "$dst/scnet.py"
           cp ../scnet-hpc/scripts/scnet_config.py "$dst/scnet_config.py"
           cp ../scnet-hpc/scripts/scnet_credentials.py "$dst/scnet_credentials.py"
+          cp ../scnet-hpc/scripts/scnet_version.py "$dst/scnet_version.py"
           rm -rf "$dst/scnet_backends"
           cp -R ../scnet-hpc/scripts/scnet_backends "$dst/scnet_backends"
           rm -rf "$dst/scnet_sdk"

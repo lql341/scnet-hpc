@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 
 from scnet_backends.base import BackendContext, BackendError
 from scnet_credentials import load_openapi_credentials
+from scnet_version import VERSION
 
 
 def canonical_signature(
@@ -66,7 +67,7 @@ class SCNetClient:
     ) -> Any:
         request_headers = {
             "Accept": "application/json",
-            "User-Agent": "scnet-hpc/1",
+            "User-Agent": f"scnet-hpc/{VERSION}",
         }
         if headers:
             request_headers.update(headers)

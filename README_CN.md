@@ -2,6 +2,12 @@
 
 中文 | [English](README.md)
 
+当前版本：**0.5.0**
+
+```bash
+python3 scripts/scnet.py --version
+```
+
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
 的 SSH、SCNet OpenAPI 和可插拔 backend 完成集群连接、资源申请、作业生成、运行诊断
 和加速器兼容性验证。需要图形客户端时，可从
@@ -32,6 +38,8 @@
 
 ```text
 scnet-hpc/
+├── VERSION                  同步使用的 SemVer 版本
+├── CHANGELOG.md             版本更新记录
 ├── SKILL.md                 技能入口、路由和操作约束
 ├── agents/
 │   └── openai.yaml          Codex 界面元数据
@@ -300,3 +308,9 @@ python3 tests/test-backends.py
 本项目采用 [MIT License](LICENSE) 开源。除许可证正文另有规定外，使用者可以自由使用、复制、修改、合并、发布、再许可和销售本项目及其衍生作品。
 
 再发布本项目或其重要组成部分时，应保留版权声明和 MIT 许可声明。本项目按“现状”提供，不对适销性、特定用途适用性或不侵权作任何明示或默示保证；使用者应自行评估代码、脚本、集群配置和生成结果的适用性及风险。
+
+## 版本管理
+
+源 Skill、DSH package 和 Codex Plugin 使用同一套 SemVer 版本。根目录 `VERSION` 是唯一
+版本来源，CLI JSON 输出会携带版本，Git tag 使用 `v<版本>`。用户可见更新记录在
+[CHANGELOG.md](CHANGELOG.md)。
