@@ -26,9 +26,13 @@ from scnet_backends.openapi import (  # noqa: E402
     service_endpoint,
 )
 from scnet_backends.profile import list_profiles, parse_profile  # noqa: E402
+from scnet import _parse_multi_numbers  # noqa: E402
 from scnet_config import (  # noqa: E402
     config_path,
     load_user_config,
+    reset_all_metadata,
+    reset_openapi_metadata,
+    reset_ssh_metadata,
     save_user_config,
 )
 
@@ -106,6 +110,40 @@ class UserConfigTests(unittest.TestCase):
                 )
                 self.assertEqual(path.stat().st_mode & 0o777, 0o600)
                 self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_scoped_and_full_metadata_reset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"XDG_CONFIG_HOME": directory}, clear=False):
+                save_user_config(
+                    {
+                        "version": 1,
+                        "cluster": "demo",
+                        "default_backend": "openapi",
+                        "ssh": {"clusters": {"demo": {"username": "alice"}}},
+                        "openapi": {"default_region_id": "11250"},
+                    }
+                )
+                self.assertTrue(reset_openapi_metadata())
+                self.assertNotIn("openapi", load_user_config())
+                self.assertTrue(reset_ssh_metadata("demo"))
+                self.assertEqual(load_user_config()["ssh"]["clusters"], {})
+                removed = reset_all_metadata()
+                self.assertTrue(removed)
+                self.assertFalse(config_path().exists())
+
+
+class SelectionTests(unittest.TestCase):
+    def test_multi_number_ranges(self):
+        self.assertEqual(
+            _parse_multi_numbers("1,3,5-7", 8),
+            {0, 2, 4, 5, 6},
+        )
+
+    def test_multi_number_rejects_empty_or_out_of_range(self):
+        with self.assertRaises(ValueError):
+            _parse_multi_numbers("", 3)
+        with self.assertRaises(ValueError):
+            _parse_multi_numbers("4", 3)
 
 
 class OpenAPIHelperTests(unittest.TestCase):

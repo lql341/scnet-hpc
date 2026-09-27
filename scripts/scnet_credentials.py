@@ -134,3 +134,27 @@ def store_openapi_credentials(
             completed.stderr.strip() or f"failed to write {provider}"
         )
     return str(provider)
+
+
+def delete_openapi_credentials() -> tuple[bool, str | None]:
+    provider = secure_store_name()
+    if provider == "macOS Keychain":
+        command = ["security", "delete-generic-password", "-s", SERVICE]
+    elif provider == "Secret Service":
+        command = ["secret-tool", "clear", "service", SERVICE]
+    else:
+        return False, None
+    completed = subprocess.run(
+        command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return True, provider
+    if load_secure_credentials() is None:
+        return False, provider
+    raise CredentialError(
+        completed.stderr.strip() or f"failed to clear {provider}"
+    )

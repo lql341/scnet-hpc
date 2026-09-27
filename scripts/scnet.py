@@ -24,10 +24,14 @@ from scnet_config import (
     config_path,
     load_user_config,
     redacted_config,
+    reset_all_metadata,
+    reset_openapi_metadata,
+    reset_ssh_metadata,
     save_user_config,
 )
 from scnet_credentials import (
     CredentialError,
+    delete_openapi_credentials,
     load_openapi_credentials,
     secure_store_name,
     store_openapi_credentials,
@@ -77,7 +81,14 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("queues", help="list queues/partitions")
     subparsers.add_parser("config", help="show saved non-secret configuration")
     setup = subparsers.add_parser(
-        "setup", help="open the first-use terminal configuration panel"
+        "setup", help="create, modify, inspect, or reset local configuration"
+    )
+    setup.add_argument(
+        "setup_action",
+        nargs="?",
+        choices=("auto", "new", "modify", "status", "reset"),
+        default="auto",
+        help="configuration lifecycle action; default chooses interactively",
     )
     setup.add_argument(
         "--skip-connect",
@@ -319,6 +330,159 @@ def _choose_interactive(
     return choices[selected]
 
 
+def _parse_multi_numbers(value: str, count: int) -> set[int]:
+    selected: set[int] = set()
+    for part in value.replace(" ", "").split(","):
+        if not part:
+            continue
+        if "-" in part:
+            start_text, end_text = part.split("-", 1)
+            start, end = int(start_text), int(end_text)
+            if start > end:
+                start, end = end, start
+            selected.update(range(start - 1, end))
+        else:
+            selected.add(int(part) - 1)
+    if not selected or any(index < 0 or index >= count for index in selected):
+        raise ValueError("selection out of range")
+    return selected
+
+
+def _multi_choose(
+    prompt: str,
+    choices: list[str],
+    defaults: set[int] | None = None,
+) -> list[str]:
+    selected = set(defaults or set())
+    if (
+        sys.stdin.isatty()
+        and sys.stdout.isatty()
+        and os.name == "posix"
+        and os.environ.get("TERM", "") != "dumb"
+    ):
+        return _multi_choose_interactive(prompt, choices, selected)
+
+    print(prompt)
+    for index, choice in enumerate(choices, 1):
+        marker = "x" if index - 1 in selected else " "
+        print(f"  [{marker}] {index}. {choice}")
+    default_text = ",".join(str(index + 1) for index in sorted(selected))
+    print("输入编号列表，如 1,3,5-8；直接按 Enter 保留当前勾选。")
+    answer = _ask("选择", default_text)
+    try:
+        indices = _parse_multi_numbers(answer, len(choices))
+    except (ValueError, TypeError) as exc:
+        raise BackendError("多选格式无效，请输入如 1,3,5-8") from exc
+    return [choice for index, choice in enumerate(choices) if index in indices]
+
+
+def _multi_choose_interactive(
+    prompt: str,
+    choices: list[str],
+    selected: set[int],
+) -> list[str]:
+    import termios
+    import tty
+
+    cursor = min(selected) if selected else 0
+    digits = ""
+    line_count = len(choices) + 1
+    print(prompt)
+    print(
+        "使用 ↑/↓ 移动，Space 勾选，a 全选，n 清空，"
+        "Enter 保存，q 取消。"
+    )
+
+    def render(first: bool = False) -> None:
+        if not first:
+            sys.stdout.write(f"\033[{line_count}A")
+        for index, choice in enumerate(choices):
+            pointer = "▶" if index == cursor else " "
+            checked = "x" if index in selected else " "
+            sys.stdout.write(
+                f"\r\033[2K  {pointer} [{checked}] {index + 1}. {choice}\n"
+            )
+        hint = (
+            f"编号定位：{digits}"
+            if digits
+            else f"已选择 {len(selected)}/{len(choices)}"
+        )
+        sys.stdout.write(f"\r\033[2K  {hint}\n")
+        sys.stdout.flush()
+
+    input_fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(input_fd)
+    render(first=True)
+    try:
+        tty.setcbreak(input_fd)
+        while True:
+            char = os.read(input_fd, 1).decode("utf-8", "ignore")
+            if char in {"\r", "\n"}:
+                if digits:
+                    value = int(digits)
+                    if 1 <= value <= len(choices):
+                        cursor = value - 1
+                    digits = ""
+                    render()
+                    continue
+                if selected:
+                    break
+                render()
+                continue
+            if char == "\x1b":
+                ready, _, _ = select.select([input_fd], [], [], 0.1)
+                sequence = (
+                    os.read(input_fd, 2).decode("utf-8", "ignore")
+                    if ready
+                    else ""
+                )
+                if sequence == "[A":
+                    cursor = (cursor - 1) % len(choices)
+                    digits = ""
+                    render()
+                elif sequence == "[B":
+                    cursor = (cursor + 1) % len(choices)
+                    digits = ""
+                    render()
+                continue
+            if char == " ":
+                if cursor in selected:
+                    selected.remove(cursor)
+                else:
+                    selected.add(cursor)
+                digits = ""
+                render()
+                continue
+            if char in {"a", "A"}:
+                selected = set(range(len(choices)))
+                digits = ""
+                render()
+                continue
+            if char in {"n", "N"}:
+                selected.clear()
+                digits = ""
+                render()
+                continue
+            if char in {"q", "Q", "\x03"}:
+                raise BackendError("用户取消配置")
+            if char in {"\x7f", "\b"}:
+                digits = digits[:-1]
+                render()
+                continue
+            if char.isdigit():
+                digits += char
+                value = int(digits)
+                if 1 <= value <= len(choices):
+                    cursor = value - 1
+                render()
+    finally:
+        termios.tcsetattr(input_fd, termios.TCSADRAIN, old_settings)
+    print(f"已启用 {len(selected)} 个区域。")
+    return [
+        choice for index, choice in enumerate(choices) if index in selected
+    ]
+
+
 def _print_terminal_help() -> None:
     system = platform.system()
     if system == "Darwin":
@@ -501,7 +665,132 @@ def _ssh_key_metadata(cluster: str, source: str, username: str) -> dict[str, Any
     return metadata
 
 
-def setup_panel(mode: str = "all") -> dict[str, Any]:
+def _has_configuration(config: Mapping[str, Any]) -> bool:
+    if config.get("default_backend") or config.get("cluster"):
+        return True
+    ssh = config.get("ssh")
+    if isinstance(ssh, dict) and ssh.get("clusters"):
+        return True
+    return isinstance(config.get("openapi"), dict) and bool(config["openapi"])
+
+
+def _print_setup_status(config: Mapping[str, Any]) -> None:
+    print("\nSCNet HPC 配置状态")
+    print("===================")
+    print(f"配置目录：{config_path().parent}")
+    print(f"默认 backend：{config.get('default_backend') or '未设置'}")
+    print(f"默认 SSH profile：{config.get('cluster') or '未设置'}")
+    ssh = config.get("ssh")
+    clusters = ssh.get("clusters", {}) if isinstance(ssh, dict) else {}
+    print(f"SSH profiles：{len(clusters) if isinstance(clusters, dict) else 0}")
+    if isinstance(clusters, dict):
+        for name, profile in sorted(clusters.items()):
+            if not isinstance(profile, dict):
+                continue
+            expiry = profile.get("key_expires_at") or "未知"
+            print(
+                f"  - {name}: user={profile.get('username') or '未知'}, "
+                f"key_expires={expiry}"
+            )
+    openapi = config.get("openapi")
+    if isinstance(openapi, dict) and openapi:
+        regions = openapi.get("regions")
+        regions = regions if isinstance(regions, dict) else {}
+        enabled = openapi.get("enabled_region_ids")
+        enabled = enabled if isinstance(enabled, list) else list(regions)
+        default_region = str(
+            openapi.get("default_region_id")
+            or openapi.get("region_id")
+            or ""
+        )
+        print(
+            f"OpenAPI：user={openapi.get('platform_user') or '未知'}, "
+            f"provider={openapi.get('credential_provider') or '环境变量'}"
+        )
+        print(f"  已发现区域：{len(regions)}，已启用区域：{len(enabled)}")
+        for region_id in enabled:
+            region = regions.get(str(region_id), {})
+            marker = "*" if str(region_id) == default_region else " "
+            print(
+                f"  {marker} {region.get('name') or region_id} ({region_id})"
+            )
+    else:
+        print("OpenAPI：未配置")
+
+
+def _setup_reset_panel(config: dict[str, Any]) -> dict[str, Any]:
+    choices = [
+        "OpenAPI 区域缓存和默认项",
+        "OpenAPI 安全凭据（Keychain/Secret Service）",
+        "一个 SSH profile 的本地元数据",
+        "全部 SCNet HPC 本地元数据（不删除真实 SSH key/config）",
+    ]
+    selected = _choose("选择重置范围：", choices, 1)
+    if not _ask_yes_no(f"确认重置“{selected}”？", default=False):
+        raise BackendError("用户取消重置")
+    if selected.startswith("OpenAPI 区域"):
+        reset_openapi_metadata()
+        config.pop("openapi", None)
+        if config.get("default_backend") == "openapi":
+            config["default_backend"] = "ssh"
+        save_user_config(config)
+    elif selected.startswith("OpenAPI 安全"):
+        try:
+            deleted, provider = delete_openapi_credentials()
+        except CredentialError as exc:
+            raise BackendError(str(exc)) from exc
+        print(
+            f"{provider or '安全凭据库'}："
+            f"{'已删除' if deleted else '没有可删除的凭据'}"
+        )
+    elif selected.startswith("一个 SSH"):
+        ssh = config.get("ssh")
+        clusters = ssh.get("clusters", {}) if isinstance(ssh, dict) else {}
+        if not isinstance(clusters, dict) or not clusters:
+            raise BackendError("没有已保存的 SSH profile 元数据")
+        names = sorted(clusters)
+        name = _choose("选择 SSH profile：", names, 1)
+        reset_ssh_metadata(name)
+        clusters.pop(name, None)
+        if config.get("cluster") == name:
+            config["cluster"] = next(iter(clusters), "")
+        save_user_config(config)
+        print("仅删除本地元数据；~/.ssh 中的 key 和 config 保持不变。")
+    else:
+        removed = reset_all_metadata()
+        print(f"已删除 {len(removed)} 个本地配置文件。")
+    return load_user_config()
+
+
+def setup_lifecycle(
+    action: str, mode: str, skip_connect: bool
+) -> dict[str, Any]:
+    current = load_user_config()
+    exists = _has_configuration(current)
+    if action == "auto":
+        labels = [
+            "查看当前状态（status）",
+            "新增连接（new）",
+            "修改现有配置（modify）",
+            "重置配置（reset）",
+        ]
+        default = 3 if exists else 2
+        selected = _choose("选择配置操作：", labels, default)
+        action = selected.split("（", 1)[1].split("）", 1)[0]
+    if action == "status":
+        _print_setup_status(current)
+        return current
+    if action == "reset":
+        return _setup_reset_panel(current)
+    if action == "modify" and not exists:
+        raise BackendError("尚无配置，请使用 `setup new`")
+    setup_panel._skip_connect = skip_connect
+    return setup_panel(mode, action)
+
+
+def setup_panel(
+    mode: str = "all", action: str = "modify"
+) -> dict[str, Any]:
     profiles = list_profiles(REPO_ROOT)
     if not profiles:
         raise BackendError("clusters/ 下没有 profile")
@@ -536,7 +825,29 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
     selected_cluster = str(current.get("cluster") or "")
 
     if configure_ssh:
-        profile_names = [item["name"] for item in profiles]
+        existing_ssh = current.get("ssh", {})
+        if not isinstance(existing_ssh, dict):
+            existing_ssh = {}
+        existing_clusters = existing_ssh.get("clusters", {})
+        if not isinstance(existing_clusters, dict):
+            existing_clusters = {}
+        all_profile_names = [item["name"] for item in profiles]
+        if action == "new":
+            profile_names = [
+                name for name in all_profile_names if name not in existing_clusters
+            ]
+            if not profile_names:
+                raise BackendError(
+                    "所有 SSH profiles 已配置；请使用 `setup modify`"
+                )
+        else:
+            profile_names = [
+                name for name in all_profile_names if name in existing_clusters
+            ]
+            if not profile_names:
+                raise BackendError(
+                    "没有已配置的 SSH profile；请使用 `setup new`"
+                )
         default_cluster = (
             profile_names.index(selected_cluster) + 1
             if selected_cluster in profile_names
@@ -546,12 +857,6 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
         selected_cluster = cluster
         result["cluster"] = cluster
         _, profile = load_profile(REPO_ROOT, cluster)
-        existing_ssh = current.get("ssh", {})
-        if not isinstance(existing_ssh, dict):
-            existing_ssh = {}
-        existing_clusters = existing_ssh.get("clusters", {})
-        if not isinstance(existing_clusters, dict):
-            existing_clusters = {}
         existing_profile = existing_clusters.get(cluster, {})
         if not isinstance(existing_profile, dict):
             existing_profile = {}
@@ -587,6 +892,14 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
         existing_openapi = current.get("openapi", {})
         if not isinstance(existing_openapi, dict):
             existing_openapi = {}
+        if action == "new" and existing_openapi:
+            raise BackendError(
+                "OpenAPI 已配置；请使用 `setup modify --mode openapi`"
+            )
+        if action == "modify" and not existing_openapi:
+            raise BackendError(
+                "OpenAPI 尚未配置；请使用 `setup new --mode openapi`"
+            )
         if skip_connect:
             print("已按 --skip-connect 跳过 OpenAPI 认证和区域发现。")
         else:
@@ -647,6 +960,32 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
                     f"{item.get('name')} ({item['region_id']})"
                     for item in contexts
                 ]
+                existing_enabled = existing_openapi.get("enabled_region_ids")
+                if isinstance(existing_enabled, list):
+                    enabled_ids = {str(item) for item in existing_enabled}
+                elif action == "new":
+                    enabled_ids = {item["region_id"] for item in contexts}
+                else:
+                    enabled_ids = {
+                        str(item)
+                        for item in (existing_openapi.get("regions") or {})
+                    }
+                default_enabled = {
+                    index
+                    for index, item in enumerate(contexts)
+                    if item["region_id"] in enabled_ids
+                }
+                selected_labels = _multi_choose(
+                    "选择在本机启用的 HPC 区域（可多选）：",
+                    region_labels,
+                    default_enabled,
+                )
+                selected_label_set = set(selected_labels)
+                enabled_contexts = [
+                    item
+                    for item, label in zip(contexts, region_labels)
+                    if label in selected_label_set
+                ]
                 existing_region = str(
                     existing_openapi.get("default_region_id")
                     or existing_openapi.get("region_id")
@@ -655,16 +994,22 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
                 default_region = next(
                     (
                         index
-                        for index, item in enumerate(contexts, 1)
+                        for index, item in enumerate(enabled_contexts, 1)
                         if item["region_id"] == existing_region
                     ),
                     1,
                 )
+                enabled_labels = [
+                    f"{item.get('name')} ({item['region_id']})"
+                    for item in enabled_contexts
+                ]
                 selected_label = _choose(
-                    "选择默认 HPC 作业区域：", region_labels, default_region
+                    "从已启用区域中选择默认 HPC 作业区域（单选）：",
+                    enabled_labels,
+                    default_region,
                 )
-                selected_index = region_labels.index(selected_label)
-                selected = contexts[selected_index]
+                selected_index = enabled_labels.index(selected_label)
+                selected = enabled_contexts[selected_index]
             finally:
                 _restore_environment(previous)
             stored_provider = saved_provider
@@ -691,6 +1036,9 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
                 "platform_user": api_user,
                 "credential_provider": stored_provider,
                 "default_region_id": selected["region_id"],
+                "enabled_region_ids": [
+                    item["region_id"] for item in enabled_contexts
+                ],
                 "region_id": selected["region_id"],
                 "region_name": selected.get("name"),
                 "scheduler_id": default_scheduler,
@@ -953,8 +1301,11 @@ def main(argv: list[str] | None = None) -> int:
             data = backend_catalog()
             backend_name = None
         elif args.operation == "setup":
-            setup_panel._skip_connect = args.skip_connect
-            data = setup_panel(args.mode)
+            data = setup_lifecycle(
+                args.setup_action,
+                args.mode,
+                args.skip_connect,
+            )
             backend_name = data.get("default_backend")
         elif args.operation == "config":
             data = redacted_config(user_config)

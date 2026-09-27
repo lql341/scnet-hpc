@@ -83,6 +83,15 @@ cd scnet-hpc
 ./scripts/setup.sh
 ```
 
+配置面板采用明确的生命周期：
+
+```bash
+./scripts/setup.sh new       # 新增连接，不覆盖已有项
+./scripts/setup.sh modify    # 修改默认项、轮换 SSH key、刷新 OpenAPI
+./scripts/setup.sh status    # 只读查看配置
+./scripts/setup.sh reset     # 分范围重置，不默认删除真实 SSH key
+```
+
 Bash 面板可以重复运行，用于选择默认 profile、更新某个区域的 SSH 用户和私钥，并检查
 密钥文件名中的有效期；
 不要求先安装 Python。它只把非敏感选择保存到
@@ -98,6 +107,10 @@ python3 scripts/scnet.py setup
 
 macOS 会优先使用 Keychain 保存 OpenAPI 凭据；Linux 如果有 Secret Service 则使用它。
 没有安全凭据库时请通过环境变量注入，不会写入普通配置文件。
+
+OpenAPI 区域支持多选：使用 ↑/↓ 移动、Space 勾选、`a` 全选、Enter 保存。多选表示
+“在本机启用的区域”；其中仍需单选一个默认区域。作业提交始终要求唯一目标区域，避免
+一次操作在多个中心重复提交。
 
 AK/SK 获取路径：登录 SCNet，进入“个人中心 → 访问控制”，生成并下载授权码。配置面板
 支持 ↑/↓ 移动并按 Enter 确认，也可以输入数字后按 Enter；直接按 Enter 使用当前默认项。

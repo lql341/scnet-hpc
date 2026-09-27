@@ -85,6 +85,15 @@ On a new computer, run:
 ./scripts/setup.sh
 ```
 
+The setup lifecycle is explicit:
+
+```bash
+./scripts/setup.sh new       # add a connection without replacing existing ones
+./scripts/setup.sh modify    # edit defaults, rotate SSH keys, refresh OpenAPI
+./scripts/setup.sh status    # read-only status
+./scripts/setup.sh reset     # scoped reset; real SSH keys are preserved by default
+```
+
 The Bash panel can be rerun to select a profile, update an SSH user/key for that profile, and
 record key-expiry metadata inferred from the downloaded filename without requiring Python.
 OpenAPI uses one platform username/AK/SK credential set to discover all authorized regions and
@@ -101,6 +110,10 @@ python3 scripts/scnet.py setup
 
 On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Service when
 available. Otherwise inject them through environment variables.
+
+OpenAPI regions support multi-selection: use ↑/↓, Space, `a` for all, and Enter to save.
+Enabled regions are stored separately from the single default region. Job submission always
+requires exactly one target region to prevent duplicate submissions.
 
 Obtain AK/SK from SCNet **Personal Center → Access Control**, where the authorization file can
 be generated and downloaded. In an interactive terminal, use ↑/↓ and Enter or type a displayed
