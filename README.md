@@ -62,6 +62,33 @@ relevant operation.
 
 ## Installation
 
+### One-line agent install
+
+Paste this single sentence into Codex:
+
+> Use `$skill-installer` to install the `scnet-hpc` Skill from the root of GitHub repository `lql341/scnet-hpc` (path `.`), name it `scnet-hpc`, do not overwrite an existing destination, then run `python3 scripts/scnet.py --help` from the installed directory and report the installation path.
+
+This installs from the canonical repository rather than a downstream plugin mirror. The Skill
+becomes available on the next turn.
+
+The equivalent verified official installer command is:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo lql341/scnet-hpc \
+  --path . \
+  --name scnet-hpc \
+  --method download
+```
+
+Verify:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/scnet-hpc/scripts/scnet.py" --help
+```
+
+### Install from a clone
+
 ```bash
 git clone https://github.com/lql341/scnet-hpc.git
 cd scnet-hpc

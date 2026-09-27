@@ -60,6 +60,33 @@ scnet-hpc/
 
 ## 安装
 
+### Agent 一句话安装
+
+把下面这一句话直接发给 Codex：
+
+> 请使用 `$skill-installer` 从 GitHub 仓库 `lql341/scnet-hpc` 的根目录（path `.`）安装 Skill，名称设为 `scnet-hpc`；如果目标已存在则不要覆盖，安装后在安装目录运行 `python3 scripts/scnet.py --help` 验证，并告诉我安装路径。
+
+该提示使用 canonical 仓库，不依赖下游 plugin 仓库。安装完成后，Skill 会在下一轮
+对话中可用。
+
+也可以直接运行经过验证的 Codex 官方安装器：
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo lql341/scnet-hpc \
+  --path . \
+  --name scnet-hpc \
+  --method download
+```
+
+验证：
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/scnet-hpc/scripts/scnet.py" --help
+```
+
+### 从仓库安装
+
 ```bash
 git clone https://github.com/lql341/scnet-hpc.git
 cd scnet-hpc
