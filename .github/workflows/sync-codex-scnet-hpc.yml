@@ -44,24 +44,39 @@ jobs:
         working-directory: codex-scnet-hpc
         run: |
           python3 - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path("sync.sh")
           text = path.read_text()
-          text = text.replace(
-              "setup-ssh.sh; do",
-              "setup-ssh.sh setup.sh scnet.py scnet_config.py scnet_credentials.py; do",
+          required = (
+              "setup.sh",
+              "scnet.py",
+              "scnet_config.py",
+              "scnet_credentials.py",
           )
+          match = re.search(r"(for file in [^;\n]+)(; do)", text)
+          if match:
+              missing = [name for name in required if name not in match.group(1)]
+              if missing:
+                  replacement = match.group(1) + " " + " ".join(missing) + match.group(2)
+                  text = text[:match.start()] + replacement + text[match.end():]
           marker = 'chmod +x "$DST/scripts/"*.sh "$DST/scripts/compute-probe.py"'
-          if marker in text and "scnet_backends" not in text:
-              text = text.replace(
-                  marker,
+          additions = ""
+          if 'cp -R "$SRC/scripts/scnet_backends"' not in text:
+              additions += (
                   'rm -rf "$DST/scripts/scnet_backends"\n'
                   'cp -R "$SRC/scripts/scnet_backends" "$DST/scripts/scnet_backends"\n'
+              )
+          if 'cp -R "$SRC/scripts/scnet_sdk"' not in text:
+              additions += (
                   'rm -rf "$DST/scripts/scnet_sdk"\n'
                   'cp -R "$SRC/scripts/scnet_sdk" "$DST/scripts/scnet_sdk"\n'
-                  f'{marker}\n'
-                  'chmod +x "$DST/scripts/scnet.py"',
+              )
+          if marker in text and additions:
+              text = text.replace(
+                  marker,
+                  additions + marker + '\nchmod +x "$DST/scripts/scnet.py"',
               )
           path.write_text(text)
           PY
