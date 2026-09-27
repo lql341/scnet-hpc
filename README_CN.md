@@ -41,12 +41,14 @@ scnet-hpc/
 ├── scripts/
 │   ├── scnet.py              backend 统一命令行入口
 │   ├── scnet_backends/       SSH、OpenAPI 和外部适配器
+│   ├── scnet_sdk/            共享 OpenAPI client 和 Notebook 只读服务
 │   ├── _common.sh           profile 加载和公共函数
 │   ├── setup-ssh.sh         SSH 配置
 │   ├── new-job.sh           Slurm 脚本生成
 │   ├── probe-cluster.sh     初始集群探测
 │   ├── refresh-cluster.sh   动态 profile 刷新
 │   ├── run-compute-probe.sh 计算节点探针提交
+│   ├── setup.sh              配置/维护面板
 │   ├── compute-probe.py     加速器能力探针
 │   └── install.sh           技能安装
 ├── references/              按操作类型拆分的参考文档
@@ -243,6 +245,7 @@ OpenAPI backend 现在支持创建远端目录，超过 8 MiB 的文件会自动
 | [`quickstart-en.md`](references/quickstart-en.md) | 英文快速操作指南 |
 | [`backends.md`](references/backends.md) | backend 选择、能力和扩展协议 |
 | [`openapi.md`](references/openapi.md) | OpenAPI 凭据、命令和验证边界 |
+| [`notebook.md`](references/notebook.md) | Notebook 只读服务和敏感字段脱敏 |
 
 ## 验证
 

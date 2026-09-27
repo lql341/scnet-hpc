@@ -42,12 +42,14 @@ scnet-hpc/
 ├── scripts/
 │   ├── scnet.py              Backend-neutral CLI
 │   ├── scnet_backends/       SSH, OpenAPI, and external adapters
+│   ├── scnet_sdk/            Shared OpenAPI client and Notebook read-only service
 │   ├── _common.sh           Profile loading and shared functions
 │   ├── setup-ssh.sh         SSH configuration
 │   ├── new-job.sh           Slurm script generation
 │   ├── probe-cluster.sh     Initial cluster discovery
 │   ├── refresh-cluster.sh   Dynamic profile refresh
 │   ├── run-compute-probe.sh Compute-node probe submission
+│   ├── setup.sh              Configuration and maintenance panel
 │   ├── compute-probe.py     Accelerator capability probe
 │   └── install.sh           Skill installation
 ├── references/              Operation-specific procedures
@@ -250,6 +252,7 @@ Then configure the permanent SSH alias and run a bounded validation job. See
 | [`quickstart-en.md`](references/quickstart-en.md) | English operating guide |
 | [`backends.md`](references/backends.md) | Backend selection, capabilities, and extension protocol |
 | [`openapi.md`](references/openapi.md) | OpenAPI credentials, commands, and validation boundaries |
+| [`notebook.md`](references/notebook.md) | Notebook read-only service and redaction rules |
 
 ## Validation
 
