@@ -24,7 +24,7 @@ jobs:
 
       - name: Validate version
         run: |
-          grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' VERSION
+          grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' VERSION
           test "$(python3 scripts/scnet.py --version)" = "scnet-hpc $(cat VERSION)"
 
       - name: Test job generation

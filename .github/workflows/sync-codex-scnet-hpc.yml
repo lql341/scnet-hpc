@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - "VERSION"
       - "SKILL.md"
       - "agents/**"
       - "clusters/**"
