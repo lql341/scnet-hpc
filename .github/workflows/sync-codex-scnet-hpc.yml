@@ -98,6 +98,16 @@ jobs:
           rm -rf "$dst/scnet_sdk"
           cp -R ../scnet-hpc/scripts/scnet_sdk "$dst/scnet_sdk"
           chmod +x "$dst/setup.sh" "$dst/scnet.py"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          version = Path("../scnet-hpc/VERSION").read_text().strip()
+          path = Path("plugins/scnet-hpc/.codex-plugin/plugin.json")
+          plugin = json.loads(path.read_text())
+          plugin["version"] = version
+          path.write_text(json.dumps(plugin, indent=2, ensure_ascii=False) + "\n")
+          PY
 
       - name: Validate Codex plugin
         working-directory: codex-scnet-hpc
