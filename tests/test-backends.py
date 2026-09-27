@@ -26,7 +26,7 @@ from scnet_backends.openapi import (  # noqa: E402
     service_endpoint,
 )
 from scnet_backends.profile import list_profiles, parse_profile  # noqa: E402
-from scnet import _parse_multi_numbers  # noqa: E402
+from scnet import _parse_multi_numbers, apply_openapi_defaults  # noqa: E402
 from scnet_config import (  # noqa: E402
     config_path,
     load_user_config,
@@ -144,6 +144,31 @@ class SelectionTests(unittest.TestCase):
             _parse_multi_numbers("", 3)
         with self.assertRaises(ValueError):
             _parse_multi_numbers("4", 3)
+
+    def test_region_override_uses_that_regions_scheduler(self):
+        config = {
+            "default_region_id": "11250",
+            "scheduler_id": "kunshan-scheduler",
+            "username": "default-user",
+            "regions": {
+                "11250": {
+                    "username": "kunshan-user",
+                    "schedulers": [{"id": "kunshan-scheduler"}],
+                },
+                "11276": {
+                    "username": "wuzhen-user",
+                    "schedulers": [{"id": "wuzhen-scheduler"}],
+                },
+            },
+        }
+        options = {
+            "region": "11276",
+            "scheduler_id": None,
+            "username": None,
+        }
+        apply_openapi_defaults(options, config)
+        self.assertEqual(options["scheduler_id"], "wuzhen-scheduler")
+        self.assertEqual(options["username"], "wuzhen-user")
 
 
 class OpenAPIHelperTests(unittest.TestCase):

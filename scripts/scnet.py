@@ -1288,6 +1288,51 @@ def doctor_report(
     }
 
 
+def apply_openapi_defaults(
+    options: dict[str, Any], openapi_config: Mapping[str, Any]
+) -> dict[str, Any]:
+    region = (
+        options.get("region")
+        or openapi_config.get("default_region_id")
+        or openapi_config.get("region_id")
+    )
+    options["region"] = region
+    region_config: Mapping[str, Any] = {}
+    regions = openapi_config.get("regions")
+    if isinstance(regions, dict) and region:
+        candidate = regions.get(str(region))
+        if isinstance(candidate, dict):
+            region_config = candidate
+    default_region = str(
+        openapi_config.get("default_region_id")
+        or openapi_config.get("region_id")
+        or ""
+    )
+    scheduler_id = options.get("scheduler_id")
+    if not scheduler_id and str(region or "") == default_region:
+        scheduler_id = openapi_config.get("scheduler_id")
+    schedulers = region_config.get("schedulers")
+    if not scheduler_id and isinstance(schedulers, list):
+        available = [
+            item
+            for item in schedulers
+            if isinstance(item, dict) and item.get("id")
+        ]
+        if len(available) == 1:
+            scheduler_id = available[0]["id"]
+    options["scheduler_id"] = scheduler_id
+    options["username"] = (
+        options.get("username")
+        or region_config.get("username")
+        or (
+            openapi_config.get("username")
+            if str(region or "") == default_region
+            else None
+        )
+    )
+    return options
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -1323,37 +1368,7 @@ def main(argv: list[str] | None = None) -> int:
             options = vars(args).copy()
             openapi_config = user_config.get("openapi", {})
             if isinstance(openapi_config, dict):
-                region = (
-                    options.get("region")
-                    or openapi_config.get("default_region_id")
-                    or openapi_config.get("region_id")
-                )
-                options["region"] = region
-                region_config: dict[str, Any] = {}
-                regions = openapi_config.get("regions")
-                if isinstance(regions, dict) and region:
-                    candidate = regions.get(str(region))
-                    if isinstance(candidate, dict):
-                        region_config = candidate
-                scheduler_id = (
-                    options.get("scheduler_id")
-                    or openapi_config.get("scheduler_id")
-                )
-                schedulers = region_config.get("schedulers")
-                if not scheduler_id and isinstance(schedulers, list):
-                    available = [
-                        item
-                        for item in schedulers
-                        if isinstance(item, dict) and item.get("id")
-                    ]
-                    if len(available) == 1:
-                        scheduler_id = available[0]["id"]
-                options["scheduler_id"] = scheduler_id
-                options["username"] = (
-                    options.get("username")
-                    or region_config.get("username")
-                    or openapi_config.get("username")
-                )
+                apply_openapi_defaults(options, openapi_config)
             if args.dry_run:
                 if args.operation not in MUTATING_OPERATIONS:
                     raise BackendError(
