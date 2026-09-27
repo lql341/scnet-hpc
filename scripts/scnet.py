@@ -36,6 +36,7 @@ from scnet_credentials import (
     secure_store_name,
     store_openapi_credentials,
 )
+from scnet_sdk.cli import add_notebook_parser, execute_notebook
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -185,6 +186,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     execute = subparsers.add_parser("exec", help="run an SSH command")
     execute.add_argument("command", nargs=argparse.REMAINDER)
+    add_notebook_parser(subparsers)
     return parser
 
 
@@ -639,6 +641,48 @@ def _detect_ssh_username(
     return ""
 
 
+def _resolved_ssh_connection(
+    cluster: str, profile: Mapping[str, str]
+) -> dict[str, Any]:
+    if not shutil.which("ssh"):
+        return {}
+    completed = subprocess.run(
+        ["ssh", "-G", cluster],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return {}
+    values: dict[str, list[str]] = {}
+    for line in completed.stdout.splitlines():
+        key, _, value = line.partition(" ")
+        if value:
+            values.setdefault(key, []).append(value)
+    host = (values.get("hostname") or [""])[0]
+    port = (values.get("port") or [""])[0]
+    if host != profile.get("SSH_HOST"):
+        return {}
+    expected_port = str(profile.get("SSH_PORT") or "22")
+    if port and port != expected_port:
+        return {}
+    identity_files = [
+        str(Path(value).expanduser())
+        for value in values.get("identityfile", [])
+    ]
+    existing_key = next(
+        (value for value in identity_files if Path(value).is_file()), ""
+    )
+    return {
+        "username": (values.get("user") or [""])[0],
+        "hostname": host,
+        "port": port or expected_port,
+        "key_path": existing_key,
+        "detected": bool(existing_key),
+    }
+
+
 def _ssh_key_metadata(cluster: str, source: str, username: str) -> dict[str, Any]:
     installed = Path.home() / ".ssh" / f"id_rsa_{cluster}"
     metadata: dict[str, Any] = {
@@ -691,6 +735,20 @@ def _print_setup_status(config: Mapping[str, Any]) -> None:
             print(
                 f"  - {name}: user={profile.get('username') or '未知'}, "
                 f"key_expires={expiry}"
+            )
+    configured_names = set(clusters) if isinstance(clusters, dict) else set()
+    for item in list_profiles(REPO_ROOT):
+        name = item["name"]
+        if name in configured_names:
+            continue
+        _, profile = load_profile(REPO_ROOT, name)
+        detected = _resolved_ssh_connection(name, profile)
+        if detected:
+            print(
+                f"  - {name}: 已检测到本机 SSH 连接，"
+                f"user={detected.get('username') or '未知'}, "
+                f"key={detected.get('key_path') or '未知'} "
+                "(尚未纳入元数据)"
             )
     openapi = config.get("openapi")
     if isinstance(openapi, dict) and openapi:
@@ -832,17 +890,28 @@ def setup_panel(
         if not isinstance(existing_clusters, dict):
             existing_clusters = {}
         all_profile_names = [item["name"] for item in profiles]
+        detected_connections = {
+            name: _resolved_ssh_connection(name, load_profile(REPO_ROOT, name)[1])
+            for name in all_profile_names
+        }
+        detected_connections = {
+            name: value for name, value in detected_connections.items() if value
+        }
         if action == "new":
             profile_names = [
-                name for name in all_profile_names if name not in existing_clusters
+                name
+                for name in all_profile_names
+                if name not in existing_clusters and name not in detected_connections
             ]
             if not profile_names:
                 raise BackendError(
-                    "所有 SSH profiles 已配置；请使用 `setup modify`"
+                    "所有 SSH profiles 已配置或已被检测到；请使用 `setup modify`"
                 )
         else:
             profile_names = [
-                name for name in all_profile_names if name in existing_clusters
+                name
+                for name in all_profile_names
+                if name in existing_clusters or name in detected_connections
             ]
             if not profile_names:
                 raise BackendError(
@@ -860,9 +929,30 @@ def setup_panel(
         existing_profile = existing_clusters.get(cluster, {})
         if not isinstance(existing_profile, dict):
             existing_profile = {}
+        detected_connection = detected_connections.get(cluster, {})
+        if not existing_profile and detected_connection:
+            print(
+                "\n检测到已有 SSH 连接，将接管其本地元数据：\n"
+                f"  用户：{detected_connection.get('username') or '未知'}\n"
+                f"  主机：{detected_connection.get('hostname')}:"
+                f"{detected_connection.get('port')}\n"
+                f"  私钥：{detected_connection.get('key_path') or '未找到'}"
+            )
+            existing_profile = dict(detected_connection)
         key_path = ""
         if not skip_connect:
-            key_path = str(Path(_ask("私钥文件路径")).expanduser())
+            detected_key = str(existing_profile.get("key_path") or "")
+            if action == "modify" and detected_key:
+                rotate = _ask_yes_no(
+                    "是否轮换为新的 SSH 私钥？", default=False
+                )
+                key_path = (
+                    str(Path(_ask("新私钥文件路径")).expanduser())
+                    if rotate
+                    else detected_key
+                )
+            else:
+                key_path = str(Path(_ask("私钥文件路径")).expanduser())
             if not key_path or not Path(key_path).is_file():
                 raise BackendError(f"找不到私钥文件: {key_path}")
         detected_user = _detect_ssh_username(
@@ -880,8 +970,43 @@ def setup_panel(
         if skip_connect:
             print("已按 --skip-connect 跳过私钥安装和 SSH 测试。")
         else:
-            if not _ask_yes_no("确认安装/轮换私钥并测试连接？", default=True):
+            adopted = (
+                action == "modify"
+                and bool(detected_connection)
+                and key_path == detected_connection.get("key_path")
+            )
+            prompt = (
+                "确认接管已有 SSH 连接并测试？"
+                if adopted
+                else "确认安装/轮换私钥并测试连接？"
+            )
+            if not _ask_yes_no(prompt, default=True):
                 print("已跳过 SSH 写入；可稍后单独运行 setup-ssh.sh。")
+            elif adopted:
+                completed = subprocess.run(
+                    [
+                        "ssh",
+                        "-o",
+                        "BatchMode=yes",
+                        "-o",
+                        "ConnectTimeout=20",
+                        cluster,
+                        "printf SCNET_OK",
+                    ],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=False,
+                )
+                if completed.returncode != 0:
+                    raise BackendError(
+                        completed.stderr.strip() or "已有 SSH 连接测试失败"
+                    )
+                clusters[cluster] = {
+                    **existing_profile,
+                    **_ssh_key_metadata(cluster, key_path, username),
+                    "adopted": True,
+                }
             else:
                 _run_setup_ssh(cluster, key_path, username)
                 clusters[cluster] = _ssh_key_metadata(
@@ -1369,7 +1494,13 @@ def main(argv: list[str] | None = None) -> int:
             openapi_config = user_config.get("openapi", {})
             if isinstance(openapi_config, dict):
                 apply_openapi_defaults(options, openapi_config)
-            if args.dry_run:
+            if args.operation == "notebook":
+                if backend_name != "openapi":
+                    raise BackendError(
+                        "Notebook management requires the OpenAPI backend"
+                    )
+                data = execute_notebook(args, context, user_config)
+            elif args.dry_run:
                 if args.operation not in MUTATING_OPERATIONS:
                     raise BackendError(
                         "--dry-run 仅适用于 submit/cancel/mkdir/upload/download/exec"

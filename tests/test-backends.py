@@ -35,6 +35,7 @@ from scnet_config import (  # noqa: E402
     reset_ssh_metadata,
     save_user_config,
 )
+from scnet_sdk.notebook import _redact  # noqa: E402
 
 
 class ProfileTests(unittest.TestCase):
@@ -171,6 +172,21 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(options["username"], "wuzhen-user")
 
 
+class NotebookTests(unittest.TestCase):
+    def test_sensitive_notebook_fields_are_redacted(self):
+        result = _redact(
+            {
+                "notebookStatus": "Running",
+                "sshPassword": "secret",
+                "url": "https://example.test/lab?token=secret",
+                "nested": {"userToken": "secret"},
+            }
+        )
+        self.assertEqual(result["sshPassword"], "<redacted>")
+        self.assertTrue(result["url"]["credentials_redacted"])
+        self.assertEqual(result["nested"]["userToken"], "<redacted>")
+
+
 class OpenAPIHelperTests(unittest.TestCase):
     def test_signature_matches_documented_algorithm(self):
         message = (
@@ -219,6 +235,7 @@ class FakeOpenAPIBackend(OpenAPIBackend):
         super().__init__(context)
         self.requests = []
         self.response = None
+        self.client.request = self._request_override
 
     def _hpc_context(self, options):
         return (
@@ -230,6 +247,11 @@ class FakeOpenAPIBackend(OpenAPIBackend):
         )
 
     def _json_request(self, method, url, **kwargs):
+        return self._request_override(
+            method, url, **kwargs
+        )
+
+    def _request_override(self, method, url, **kwargs):
         self.requests.append((method, url, kwargs))
         return self.response
 
@@ -467,7 +489,7 @@ class OpenAPIHTTPFlowTests(unittest.TestCase):
                 "SCNET_OPENAPI_CENTER_URL": base + "/center",
             },
             clear=False,
-        ), patch("scnet_backends.openapi.urlopen", side_effect=fake_urlopen):
+        ), patch("scnet_sdk.client.urlopen", side_effect=fake_urlopen):
             backend = OpenAPIBackend(context)
             result = backend.execute("queues", {"region": "456"})
         self.assertEqual(result[0]["partition"], "debug")

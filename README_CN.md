@@ -108,6 +108,18 @@ python3 scripts/scnet.py setup
 macOS 会优先使用 Keychain 保存 OpenAPI 凭据；Linux 如果有 Secret Service 则使用它。
 没有安全凭据库时请通过环境变量注入，不会写入普通配置文件。
 
+Notebook 已作为独立服务域接入，当前提供只读查询：
+
+```bash
+python3 scripts/scnet.py --backend openapi notebook regions
+python3 scripts/scnet.py --backend openapi --region 11250 notebook resources
+python3 scripts/scnet.py --backend openapi --region 11250 notebook images
+python3 scripts/scnet.py --backend openapi --region 11250 notebook list
+```
+
+Notebook 默认脱敏 SSH 密码和带查询凭据的 URL。创建、开机、关机和释放等有外部副作用
+的操作暂未开启。
+
 OpenAPI 区域支持多选：使用 ↑/↓ 移动、Space 勾选、`a` 全选、Enter 保存。多选表示
 “在本机启用的区域”；其中仍需单选一个默认区域。作业提交始终要求唯一目标区域，避免
 一次操作在多个中心重复提交。

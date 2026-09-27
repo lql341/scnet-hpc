@@ -27,7 +27,7 @@ python3 scripts/scnet.py --backend <name> capabilities
 
 Built-in capability summary:
 
-| Operation | SSH | OpenAPI |
+| Domain / operation | SSH | OpenAPI |
 |---|---:|---:|
 | Local profiles / authorized regions | yes | yes |
 | Queues and limits | yes | yes |
@@ -37,6 +37,7 @@ Built-in capability summary:
 | Create remote directory | no | yes |
 | Arbitrary remote command | yes | no |
 | Modules, builds, interactive diagnosis | yes | no |
+| Notebook read-only discovery | no | yes |
 
 Use OpenAPI for structured control-plane work. Use SSH for environment setup, compilation,
 interactive inspection, full scheduler tooling, and operations not represented by a structured

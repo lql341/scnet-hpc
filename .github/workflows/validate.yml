@@ -20,7 +20,7 @@ jobs:
           done
 
       - name: Validate Python syntax
-        run: python3 -m py_compile scripts/*.py scripts/scnet_backends/*.py
+        run: python3 -m py_compile scripts/*.py scripts/scnet_sdk/*.py scripts/scnet_backends/*.py
 
       - name: Test job generation
         run: bash tests/test-new-job.sh
