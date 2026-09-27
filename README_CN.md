@@ -83,16 +83,21 @@ cd scnet-hpc
 ./scripts/setup.sh
 ```
 
-Bash 面板会引导选择默认 profile 和 backend，可配置 SSH，也可以保存 OpenAPI 区域提示；
+Bash 面板可以重复运行，用于选择默认 profile、更新某个区域的 SSH 用户和私钥，并检查
+密钥文件名中的有效期；
 不要求先安装 Python。它只把非敏感选择保存到
 `~/.config/scnet-hpc/config.json`（或 `$XDG_CONFIG_HOME/scnet-hpc/config.json`），
 不会保存 AK、SK 或 token。
 
-开发者可以使用功能更完整的 Python 面板，它会验证 OpenAPI 凭据并发现授权区域和调度器：
+OpenAPI 只需要配置一次平台用户名、AK 和 SK；区域 ID、区域用户名和调度器会自动发现。
+开发者也可以使用功能更完整的 Python 面板，它会验证凭据并发现所有授权区域：
 
 ```bash
 python3 scripts/scnet.py setup
 ```
+
+macOS 会优先使用 Keychain 保存 OpenAPI 凭据；Linux 如果有 Secret Service 则使用它。
+没有安全凭据库时请通过环境变量注入，不会写入普通配置文件。
 
 配置后可以只读检查：
 

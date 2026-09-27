@@ -80,10 +80,30 @@ class UserConfigTests(unittest.TestCase):
                         "version": 1,
                         "cluster": "demo",
                         "default_backend": "ssh",
+                        "ssh": {
+                            "clusters": {
+                                "demo": {
+                                    "username": "alice",
+                                    "key_expires_at": "2026-10-29",
+                                }
+                            }
+                        },
+                        "openapi": {
+                            "regions": {
+                                "11112": {"name": "Kunshan", "available": True}
+                            }
+                        },
                     }
                 )
                 self.assertEqual(path, config_path())
                 self.assertEqual(load_user_config()["cluster"], "demo")
+                merged = load_user_config()
+                self.assertEqual(
+                    merged["ssh"]["clusters"]["demo"]["username"], "alice"
+                )
+                self.assertEqual(
+                    merged["openapi"]["regions"]["11112"]["name"], "Kunshan"
+                )
                 self.assertEqual(path.stat().st_mode & 0o777, 0o600)
                 self.assertEqual(path.parent.stat().st_mode & 0o777, 0o700)
 

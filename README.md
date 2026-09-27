@@ -85,8 +85,10 @@ On a new computer, run:
 ./scripts/setup.sh
 ```
 
-The Bash panel selects a default profile and backend, configures SSH, and records non-secret
-OpenAPI region hints without requiring Python. It saves only non-secret choices under
+The Bash panel can be rerun to select a profile, update an SSH user/key for that profile, and
+record key-expiry metadata inferred from the downloaded filename without requiring Python.
+OpenAPI uses one platform username/AK/SK credential set to discover all authorized regions and
+schedulers. It saves only non-secret choices under
 `~/.config/scnet-hpc/config.json` (or `$XDG_CONFIG_HOME/scnet-hpc/config.json`); AK/SK and
 tokens are never written there.
 
@@ -96,6 +98,9 @@ authorized regions and schedulers:
 ```bash
 python3 scripts/scnet.py setup
 ```
+
+On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Service when
+available. Otherwise inject them through environment variables.
 
 Check the result without changing anything:
 
