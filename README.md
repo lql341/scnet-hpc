@@ -140,16 +140,23 @@ python3 scripts/scnet.py setup
 On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Service when
 available. Otherwise inject them through environment variables.
 
-Notebook is integrated as a separate read-only service domain:
+Notebook is integrated as a separate service domain with read-only discovery and
+confirmation-driven lifecycle operations:
 
 ```bash
 python3 scripts/scnet.py --backend openapi notebook regions
 python3 scripts/scnet.py --backend openapi --region <region-id> notebook resources
 python3 scripts/scnet.py --backend openapi --region <region-id> notebook list
+python3 scripts/scnet.py --dry-run --backend openapi \
+  notebook create --region <region-id>
+python3 scripts/scnet.py --backend openapi \
+  notebook smoke --region <region-id>
 ```
 
-Passwords and credential-bearing URL queries are redacted by default. Notebook lifecycle
-mutations are intentionally not exposed yet.
+Passwords and credential-bearing URL queries are redacted by default. Create automatically
+selects the smallest available resource and trusted preset Jupyter image. Mutations require
+confirmation; non-interactive callers must pass `--yes`. Smoke tests stop and release the
+temporary instance in cleanup.
 
 OpenAPI regions support multi-selection: use ↑/↓, Space, `a` for all, and Enter to save.
 Enabled regions are stored separately from the single default region. Job submission always

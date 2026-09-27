@@ -59,8 +59,8 @@ override examples.
 
 - `scripts/setup.sh`: first-use configuration panel.
 - `python3 scripts/scnet.py ...`: backend-neutral operations, dry-run, raw output, and doctor.
-- `python3 scripts/scnet.py notebook ...`: read-only Notebook regions, resources, images,
-  instances, details, and access status.
+- `python3 scripts/scnet.py notebook ...`: Notebook discovery and confirmation-driven
+  lifecycle operations. Use `--dry-run` before create/start/stop/release.
 - `scripts/new-job.sh`: profile-aware Slurm generation.
 - `scripts/refresh-cluster.sh`: SSH-derived profile refresh.
 - `scripts/probe-cluster.sh`: initial profile creation.

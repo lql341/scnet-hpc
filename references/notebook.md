@@ -18,9 +18,38 @@ The default output redacts SSH passwords and URL query credentials. Use `--revea
 the user explicitly needs a URL to open, and do not place the resulting value in reports or
 long-lived logs.
 
-Notebook creation, start, stop, and release are intentionally not exposed by this first
-read-only integration. They consume resources or change external state and require a later
-confirmation-driven workflow.
+Lifecycle commands:
+
+```bash
+python3 scripts/scnet.py --dry-run --backend openapi \
+  notebook create --region <id>
+python3 scripts/scnet.py --backend openapi \
+  notebook create --region <id>
+python3 scripts/scnet.py --backend openapi \
+  notebook start <id> --region <id>
+python3 scripts/scnet.py --backend openapi \
+  notebook stop <id> --region <id>
+python3 scripts/scnet.py --backend openapi \
+  notebook release <id> --region <id>
+```
+
+`create` automatically chooses the smallest currently available resource and the smallest
+trusted preset Jupyter image. Advanced users may override the resource group or image ID.
+
+`smoke` performs a bounded lifecycle:
+
+```bash
+python3 scripts/scnet.py --dry-run --backend openapi \
+  notebook smoke --region <id>
+python3 scripts/scnet.py --backend openapi \
+  notebook smoke --region <id>
+```
+
+It creates one minimal Notebook, waits for `Running`, validates the redacted Jupyter URL, then
+stops and releases the instance in a cleanup block.
+
+Mutations require interactive confirmation. Non-interactive callers must pass `--yes`. Release
+requires the Notebook ID in interactive mode because it is irreversible.
 
 Official API sections:
 

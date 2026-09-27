@@ -36,6 +36,7 @@ from scnet_config import (  # noqa: E402
     save_user_config,
 )
 from scnet_sdk.notebook import _redact  # noqa: E402
+from scnet_sdk.notebook import NotebookService  # noqa: E402
 
 
 class ProfileTests(unittest.TestCase):
@@ -185,6 +186,71 @@ class NotebookTests(unittest.TestCase):
         self.assertEqual(result["sshPassword"], "<redacted>")
         self.assertTrue(result["url"]["credentials_redacted"])
         self.assertEqual(result["nested"]["userToken"], "<redacted>")
+
+    def test_create_plan_selects_smallest_available_trusted_image(self):
+        service = NotebookService(object())
+        service.resources = lambda region: [
+            {
+                "clusterName": "Kunshan",
+                "resourceGroupCode": "large",
+                "resourceName": "Large DCU",
+                "resourceType": "DCU",
+                "maxFreeNum": 8,
+                "cpuNumber": "15核",
+                "ramSize": "120GB",
+            },
+            {
+                "clusterName": "Kunshan",
+                "resourceGroupCode": "small",
+                "resourceName": "Small DCU",
+                "resourceType": "DCU",
+                "maxFreeNum": 2,
+                "cpuNumber": "6核",
+                "ramSize": "21GB",
+            },
+        ]
+        service.images = lambda region, **kwargs: {
+            "data": [
+                {
+                    "id": "untrusted",
+                    "name": "jupyter-test",
+                    "version": "jupyter-test:v1",
+                    "path": "untrusted",
+                    "imageSize": "10",
+                    "status": "Completed",
+                    "user": "someone",
+                    "isPresetImage": False,
+                },
+                {
+                    "id": "official-large",
+                    "name": "jupyterlab-pytorch",
+                    "version": "jupyterlab-pytorch:large",
+                    "path": "official-large",
+                    "imageSize": "9000",
+                    "status": "Completed",
+                    "user": "admin",
+                    "isPresetImage": True,
+                },
+                {
+                    "id": "official-small",
+                    "name": "jupyterlab-paddle",
+                    "version": "jupyterlab-paddle:small",
+                    "path": "official-small",
+                    "imageSize": "4000",
+                    "status": "Completed",
+                    "user": "admin",
+                    "isPresetImage": True,
+                },
+            ]
+        }
+        plan = service.create_plan("11250")
+        self.assertEqual(
+            plan["request"]["resourceGroupCode"], "small"
+        )
+        self.assertEqual(
+            plan["request"]["imagePath"], "official-small"
+        )
+        self.assertEqual(plan["request"]["acceleratorNumber"], "1")
 
 
 class OpenAPIHelperTests(unittest.TestCase):
