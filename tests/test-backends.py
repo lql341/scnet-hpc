@@ -295,6 +295,35 @@ class OpenAPIOperationTests(unittest.TestCase):
         preview = self.backend.preview("mkdir", {"path": "/public/home/alice/work"})
         self.assertFalse(preview["parents"])
 
+    def test_discovery_skips_regions_without_hpc_service(self):
+        regions = [
+            {"clusterId": "model", "clusterName": "Model", "token": "one"},
+            {"clusterId": "hpc", "clusterName": "HPC", "token": "two"},
+        ]
+        self.backend._regions = lambda: regions
+
+        def request(method, url, **kwargs):
+            token = kwargs.get("token")
+            if url.endswith("/center") and token == "one":
+                return {"clusterUserInfo": {"userName": "alice"}}
+            if url.endswith("/center") and token == "two":
+                return {
+                    "clusterUserInfo": {
+                        "userName": "alice",
+                        "homePath": "/public/home/alice",
+                    },
+                    "hpcUrls": [
+                        {"enable": "true", "url": "https://example.test/hpc"}
+                    ],
+                }
+            if url.endswith("/hpc/openapi/v2/cluster"):
+                return [{"id": 123, "text": "slurm", "JobManagerType": "SLURM"}]
+            raise AssertionError((method, url, kwargs))
+
+        self.backend._json_request = request
+        contexts = self.backend.discover_all_region_contexts()
+        self.assertEqual([item["region_id"] for item in contexts], ["hpc"])
+
 
 class FakeHTTPResponse:
     def __init__(self, data):

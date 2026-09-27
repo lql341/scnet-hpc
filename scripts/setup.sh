@@ -88,6 +88,9 @@ choose() {
     for index in "${!choices[@]}"; do
         printf '  %d. %s\n' "$((index + 1))" "${choices[$index]}" >&2
     done
+    printf '请输入 1-%d 的数字并按 Enter；直接按 Enter 使用默认项 1。\n' \
+        "${#choices[@]}" >&2
+    printf '不使用方向键；macOS、Ubuntu、Debian 终端操作相同。\n' >&2
     local selected
     selected=$(ask "选择" "1")
     [[ "$selected" =~ ^[0-9]+$ ]] || die "选择必须是数字"
@@ -254,6 +257,24 @@ require_tty
 printf '\nSCNet HPC 配置/维护面板（Bash）\n' >&2
 printf '==================================\n' >&2
 printf '此面板只保存非敏感选择；AK/SK/token 不会写入配置文件。\n\n' >&2
+case "$(uname -s)" in
+    Darwin)
+        printf '%s\n' \
+            "macOS：在 Terminal 或 iTerm2 中输入数字后按 Enter；Ctrl+C 可取消。" \
+            "敏感输入不会回显；OpenAPI 凭据可保存到 macOS Keychain。" >&2
+        ;;
+    Linux)
+        if [ -r /etc/os-release ] \
+            && grep -Eq '^ID=(ubuntu|debian)$' /etc/os-release; then
+            printf '%s\n' \
+                "Ubuntu/Debian：在 Terminal 中输入数字后按 Enter；Ctrl+C 可取消。" \
+                "如需安全保存 AK/SK：sudo apt install libsecret-tools" >&2
+        else
+            printf '%s\n' "Linux：输入数字后按 Enter；Ctrl+C 可取消。" >&2
+        fi
+        ;;
+esac
+printf '\n' >&2
 
 available=$(list_clusters)
 [ -n "$available" ] || die "clusters/ 下没有 profile"

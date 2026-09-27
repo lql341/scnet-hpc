@@ -99,6 +99,11 @@ python3 scripts/scnet.py setup
 macOS 会优先使用 Keychain 保存 OpenAPI 凭据；Linux 如果有 Secret Service 则使用它。
 没有安全凭据库时请通过环境变量注入，不会写入普通配置文件。
 
+AK/SK 获取路径：登录 SCNet，进入“个人中心 → 访问控制”，生成并下载授权码。配置面板
+中的列表通过输入数字并按 Enter 选择；直接按 Enter 使用带 `*` 的默认项，不使用方向键。
+macOS Terminal、Ubuntu Terminal 和 Debian Terminal 的操作方式相同。Ubuntu/Debian
+可用 `sudo apt install libsecret-tools` 安装 Secret Service 命令行工具。
+
 配置后可以只读检查：
 
 ```bash

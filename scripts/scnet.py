@@ -8,6 +8,7 @@ import datetime as dt
 import getpass
 import json
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -222,6 +223,11 @@ def _choose(prompt: str, choices: list[str], default: int = 1) -> str:
     for index, choice in enumerate(choices, 1):
         marker = "*" if index == default else " "
         print(f"  {marker} {index}. {choice}")
+    print(
+        f"请输入 1-{len(choices)} 的数字并按 Enter；"
+        f"直接按 Enter 使用带 * 的默认项 {default}。"
+    )
+    print("此面板不使用方向键；macOS、Ubuntu、Debian 终端操作相同。")
     answer = _ask("选择", str(default))
     try:
         selected = int(answer)
@@ -230,6 +236,37 @@ def _choose(prompt: str, choices: list[str], default: int = 1) -> str:
     if selected < 1 or selected > len(choices):
         raise BackendError("选择超出范围")
     return choices[selected - 1]
+
+
+def _print_terminal_help() -> None:
+    system = platform.system()
+    if system == "Darwin":
+        print(
+            "macOS：在 Terminal 或 iTerm2 中运行；输入数字后按 Enter，"
+            "Ctrl+C 可取消。敏感输入不会回显。"
+        )
+        print("凭据可保存到系统自带的 macOS Keychain。")
+    elif system == "Linux":
+        distro = ""
+        try:
+            for line in Path("/etc/os-release").read_text().splitlines():
+                if line.startswith("ID="):
+                    distro = line.split("=", 1)[1].strip().strip('"')
+                    break
+        except OSError:
+            pass
+        if distro in {"ubuntu", "debian"}:
+            print(
+                "Ubuntu/Debian：在 Terminal 中运行；输入数字后按 Enter，"
+                "Ctrl+C 可取消。敏感输入不会回显。"
+            )
+            print(
+                "如需安全保存 AK/SK，可安装 Secret Service 工具："
+                "sudo apt install libsecret-tools"
+            )
+        else:
+            print("Linux：输入数字后按 Enter；Ctrl+C 可取消。敏感输入不会回显。")
+    print()
 
 
 def _run_setup_ssh(cluster: str, key_path: str, username: str) -> None:
@@ -388,6 +425,7 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
     print("\nSCNet HPC 配置/维护面板")
     print("=======================")
     print("自动探测区域、调度器和 SSH 元数据；只要求输入必要凭据。\n")
+    _print_terminal_help()
 
     current_default = str(current.get("default_backend") or "ssh")
     if mode == "all":
@@ -468,6 +506,19 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
         if skip_connect:
             print("已按 --skip-connect 跳过 OpenAPI 认证和区域发现。")
         else:
+            print(
+                "\n当前配置的是 HPC/Slurm 作业 OpenAPI，"
+                "不是 Notebook、容器或模型服务 API。"
+            )
+            print(
+                "AK/SK 获取：登录 SCNet → 个人中心 → 访问控制 → "
+                "生成并下载授权码。"
+            )
+            print(
+                "官方说明：https://www.scnet.cn/ac/openapi/doc/2.0/"
+                "api/safecertification/get-user-tokens-aksk.html"
+            )
+            print("SecretKey 输入时不会显示字符或星号，这是正常现象。\n")
             saved_credentials, saved_provider = load_openapi_credentials()
             use_saved = bool(saved_credentials) and _ask_yes_no(
                 f"检测到 {saved_provider} 中的 OpenAPI 凭据，是否使用？",
@@ -497,7 +548,7 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
                 contexts = backend_instance.discover_all_region_contexts()
                 if not contexts:
                     raise BackendError("账号没有可用的 OpenAPI 计算区域")
-                print("\n已自动发现授权区域：")
+                print("\n已自动发现支持 HPC/Slurm 作业 API 的授权区域：")
                 for item in contexts:
                     scheduler_names = ", ".join(
                         str(scheduler.get("name") or scheduler.get("id"))
@@ -526,7 +577,7 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
                     1,
                 )
                 selected_label = _choose(
-                    "选择 OpenAPI 区域：", region_labels, default_region
+                    "选择默认 HPC 作业区域：", region_labels, default_region
                 )
                 selected_index = region_labels.index(selected_label)
                 selected = contexts[selected_index]
@@ -572,8 +623,14 @@ def setup_panel(mode: str = "all") -> dict[str, Any]:
                 },
             }
             print(
-                f"默认 OpenAPI 区域："
-                f"{selected.get('name') or selected['region_id']}"
+                "\nHPC OpenAPI 配置完成：\n"
+                f"  默认区域：{selected.get('name') or selected['region_id']}"
+                f" ({selected['region_id']})\n"
+                f"  区域用户：{selected.get('username')}\n"
+                f"  Home：{selected.get('home_path')}\n"
+                f"  Scheduler："
+                f"{', '.join(str(item.get('name') or item.get('id')) for item in selected_schedulers) or '未发现'}\n"
+                "  API 类型：HPC/Slurm 作业 API（非 Notebook API）"
             )
 
     if selected_cluster:
@@ -617,10 +674,15 @@ def doctor_report(
     except OSError as exc:
         add("user_config", False, str(exc))
 
+    profile_required = backend_name == "ssh"
     add(
         "profile",
-        bool(profile_name and profile.get("CLUSTER_ID")),
-        profile_name or "未选择集群 profile",
+        bool(profile_name and profile.get("CLUSTER_ID"))
+        if profile_required
+        else True,
+        (profile_name or "未选择集群 profile")
+        if profile_required
+        else "OpenAPI 不需要 SSH profile",
     )
     add(
         "backend",

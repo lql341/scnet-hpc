@@ -102,6 +102,11 @@ python3 scripts/scnet.py setup
 On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Service when
 available. Otherwise inject them through environment variables.
 
+Obtain AK/SK from SCNet **Personal Center → Access Control**, where the authorization file can
+be generated and downloaded. In terminal menus, type the displayed number and press Enter;
+press Enter without a number to accept the item marked `*`. Arrow-key navigation is not used.
+On Ubuntu/Debian, install the Secret Service CLI with `sudo apt install libsecret-tools`.
+
 Check the result without changing anything:
 
 ```bash

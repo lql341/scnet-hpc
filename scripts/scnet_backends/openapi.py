@@ -356,7 +356,12 @@ class OpenAPIBackend(Backend):
             center = self._json_request("GET", center_url, token=str(token))
             if not isinstance(center, dict):
                 continue
-            hpc_url = self._enabled_url(center, "hpcUrls")
+            try:
+                hpc_url = self._enabled_url(center, "hpcUrls")
+            except BackendError:
+                # An account can be authorized for platform/model regions that do not
+                # expose an HPC service. They are not job-submission targets.
+                continue
             schedulers = self._json_request(
                 "GET",
                 service_endpoint(hpc_url, "hpc", "/openapi/v2/cluster"),
