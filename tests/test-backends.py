@@ -36,6 +36,7 @@ from scnet_config import (  # noqa: E402
     reset_ssh_metadata,
     save_user_config,
 )
+from scnet_sdk.client import SCNetClient  # noqa: E402
 from scnet_sdk.notebook import _redact  # noqa: E402
 from scnet_sdk.notebook import NotebookService  # noqa: E402
 
@@ -187,6 +188,20 @@ class OpenAPIJobTests(unittest.TestCase):
         for raw_state, label in expected.items():
             self.assertEqual(normalize_job({"jobId": "1", "jobStatus": raw_state})["state"], label)
 
+    def test_history_field_aliases_are_normalized(self):
+        result = normalize_job(
+            {
+                "jobId": "1",
+                "jobState": "statC",
+                "workdir": "/work/demo",
+                "jobQueueTime": "2026-09-30 10:00:00",
+                "jobWalltimeUsed": "00:01:23",
+            }
+        )
+        self.assertEqual(result["work_dir"], "/work/demo")
+        self.assertEqual(result["submitted_at"], "2026-09-30 10:00:00")
+        self.assertEqual(result["elapsed"], "00:01:23")
+
     def test_job_falls_back_to_history_for_missing_realtime_shape(self):
         backend = OpenAPIBackend(
             BackendContext(REPO_ROOT, None, {}, timeout=1)
@@ -203,7 +218,10 @@ class OpenAPIJobTests(unittest.TestCase):
         def request(method, url, **kwargs):
             calls.append(url)
             if "historyjobs" in url:
-                return {"jobId": "123", "jobState": "statD"}
+                return {
+                    "list": [{"jobId": "123", "jobState": "statD"}],
+                    "total": 1,
+                }
             return []
 
         backend._json_request = request
@@ -211,6 +229,9 @@ class OpenAPIJobTests(unittest.TestCase):
         self.assertEqual(result["source"], "history")
         self.assertEqual(result["state"], "FAILED")
         self.assertEqual(len(calls), 2)
+        self.assertIn("/openapi/v2/historyjobs?", calls[-1])
+        self.assertIn("jobId=123", calls[-1])
+        self.assertNotIn("/scheduler/123", calls[-1])
 
     def test_job_does_not_hide_authentication_failures_with_history(self):
         backend = OpenAPIBackend(
@@ -250,6 +271,65 @@ class OpenAPIJobTests(unittest.TestCase):
         self.assertEqual(result["total"], 2)
         self.assertEqual(result["items"][0]["state"], "RUNNING")
         self.assertEqual(result["items"][1]["state"], "CANCELLED")
+
+
+class TokenCacheTests(unittest.TestCase):
+    def setUp(self):
+        self.context = BackendContext(REPO_ROOT, None, {}, timeout=1)
+
+    def test_lock_permission_error_disables_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch.dict(os.environ, {"XDG_CACHE_HOME": directory}, clear=False),
+                patch(
+                    "scnet_sdk.client.os.open",
+                    side_effect=PermissionError("read-only cache"),
+                ),
+            ):
+                self.assertIsNone(SCNetClient._acquire_token_cache_lock())
+
+    def test_cache_write_failure_is_nonfatal(self):
+        with tempfile.NamedTemporaryFile() as file:
+            with patch.dict(
+                os.environ,
+                {"XDG_CACHE_HOME": file.name},
+                clear=False,
+            ):
+                self.assertFalse(
+                    SCNetClient._write_token_cache(
+                        "fingerprint",
+                        [{"clusterId": "1", "token": "secret"}],
+                    )
+                )
+
+    def test_regions_continue_without_cache_lock(self):
+        client = SCNetClient(self.context)
+        regions = [{"clusterId": "1", "clusterName": "test", "token": "secret"}]
+        credentials = {
+            "user": "alice",
+            "access_key": "access",
+            "secret_key": "secret",
+        }
+        with (
+            patch(
+                "scnet_sdk.client.load_openapi_credentials",
+                return_value=(credentials, "test"),
+            ),
+            patch.object(
+                SCNetClient,
+                "_read_token_cache",
+                return_value=None,
+            ),
+            patch.object(
+                SCNetClient,
+                "_acquire_token_cache_lock",
+                return_value=None,
+            ),
+            patch.object(client, "request", return_value=regions),
+            patch.object(SCNetClient, "_write_token_cache") as write_cache,
+        ):
+            self.assertEqual(client.regions(), regions)
+        write_cache.assert_not_called()
 
 
 class NotebookTests(unittest.TestCase):

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2 - 2026-09-30
+
+- Query completed jobs through the filtered history-list endpoint instead of the slow,
+  empty history-detail response; callers still provide only a job ID.
+- Normalize the historical `workdir`, queue-time, and walltime field variants.
+- Treat token-cache locking and writes as best-effort optimizations so read-only homes,
+  sandboxes, and containers can continue without persistent caching.
+
 ## 0.6.1 - 2026-09-30
 
 - Complete job-state normalization and fall back from stale realtime job records to the
