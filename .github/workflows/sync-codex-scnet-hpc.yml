@@ -109,6 +109,27 @@ jobs:
           path.write_text(json.dumps(plugin, indent=2, ensure_ascii=False) + "\n")
           PY
 
+      - name: Align Codex release README
+        working-directory: codex-scnet-hpc
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          version = Path("../scnet-hpc/VERSION").read_text().strip()
+          markers = {
+              "README.md": rf"(?m)^(Current release:\s*\*\*)[^*]+(\*\*)$",
+              "README_CN.md": rf"(?m)^(当前版本：\s*\*\*)[^*]+(\*\*)$",
+          }
+          for name, pattern in markers.items():
+              path = Path(name)
+              text = path.read_text()
+              updated, count = re.subn(pattern, rf"\g<1>{version}\g<2>", text)
+              if count != 1:
+                  raise SystemExit(f"expected one release marker in {name}, found {count}")
+              path.write_text(updated)
+          PY
+
       - name: Validate Codex plugin
         working-directory: codex-scnet-hpc
         run: |
@@ -118,6 +139,9 @@ jobs:
           plugin = json.loads(Path("plugins/scnet-hpc/.codex-plugin/plugin.json").read_text())
           assert plugin["name"] == "scnet-hpc"
           assert plugin["skills"] == "./skills/"
+          version = Path("plugins/scnet-hpc/skills/scnet-hpc/VERSION").read_text().strip()
+          assert version in Path("README.md").read_text()
+          assert version in Path("README_CN.md").read_text()
           marketplace = json.loads(Path(".agents/plugins/marketplace.json").read_text())
           assert any(entry["name"] == "scnet-hpc" for entry in marketplace["plugins"])
           PY
