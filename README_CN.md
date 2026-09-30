@@ -2,7 +2,7 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.5.0**
+当前版本：**0.5.1**
 
 ```bash
 python3 scripts/scnet.py --version

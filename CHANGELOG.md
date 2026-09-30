@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 - 2026-09-30
+
+- Align downstream DSH, Codex Plugin, and npm package versioning at the canonical release version.
+- Update the DSH downstream sync workflow to preserve prerelease and stable version strings without duplication.
+
 ## 0.5.0 - 2026-09-27
 
 - Added repeatable configuration lifecycle and SSH key rotation metadata.

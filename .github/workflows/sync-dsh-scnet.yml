@@ -105,6 +105,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
+          import re
           from pathlib import Path
 
           version = Path("../scnet-hpc/VERSION").read_text().strip()
@@ -112,11 +113,17 @@ jobs:
           package = json.loads(path.read_text())
           package["version"] = version
           path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n")
-          for name in ("README.md", "README_CN.md"):
+          readme_patterns = {
+              "README.md": r"(?m)^(Current release:\s*\*\*)[^*]+(\*\*)$",
+              "README_CN.md": r"(?m)^(当前版本：\s*\*\*)[^*]+(\*\*)$",
+          }
+          for name, pattern in readme_patterns.items():
               readme = Path(name)
               text = readme.read_text()
-              text = text.replace("0.5.0", version)
-              readme.write_text(text)
+              updated, count = re.subn(pattern, rf"\g<1>{version}\g<2>", text)
+              if count != 1:
+                  raise SystemExit(f"expected one release marker in {name}, found {count}")
+              readme.write_text(updated)
           PY
 
       - name: Install dsh-scnet dependencies
