@@ -2,7 +2,7 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.0**
+Current release: **0.6.1**
 
 ```bash
 python3 scripts/scnet.py --version

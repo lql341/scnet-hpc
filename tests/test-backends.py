@@ -18,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from scnet_backends import BackendContext  # noqa: E402
+from scnet_backends.base import BackendError  # noqa: E402
 from scnet_backends.external import ExternalBackend  # noqa: E402
 from scnet_backends.openapi import (  # noqa: E402
     OpenAPIBackend,
@@ -171,6 +172,84 @@ class SelectionTests(unittest.TestCase):
         apply_openapi_defaults(options, config)
         self.assertEqual(options["scheduler_id"], "wuzhen-scheduler")
         self.assertEqual(options["username"], "wuzhen-user")
+
+
+class OpenAPIJobTests(unittest.TestCase):
+    def test_all_known_states_have_stable_labels(self):
+        expected = {
+            "statDE": "CANCELLED",
+            "statD": "FAILED",
+            "statEX": "ABNORMAL",
+            "statT": "TIMEOUT",
+            "statN": "NODE_ERROR",
+            "statRQ": "REQUEUED",
+        }
+        for raw_state, label in expected.items():
+            self.assertEqual(normalize_job({"jobId": "1", "jobStatus": raw_state})["state"], label)
+
+    def test_job_falls_back_to_history_for_missing_realtime_shape(self):
+        backend = OpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=1)
+        )
+        backend._hpc_context = lambda options: (
+            "https://hpc.test",
+            "token",
+            "scheduler",
+            "user",
+            {"clusterId": "region"},
+        )
+        calls = []
+
+        def request(method, url, **kwargs):
+            calls.append(url)
+            if "historyjobs" in url:
+                return {"jobId": "123", "jobState": "statD"}
+            return []
+
+        backend._json_request = request
+        result = backend.op_job({"job_id": "123"})
+        self.assertEqual(result["source"], "history")
+        self.assertEqual(result["state"], "FAILED")
+        self.assertEqual(len(calls), 2)
+
+    def test_job_does_not_hide_authentication_failures_with_history(self):
+        backend = OpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=1)
+        )
+        backend._hpc_context = lambda options: (
+            "https://hpc.test",
+            "token",
+            "scheduler",
+            "user",
+            {"clusterId": "region"},
+        )
+
+        def request(method, url, **kwargs):
+            raise BackendError("SCNet OpenAPI error 10008: token expired")
+
+        backend._json_request = request
+        with self.assertRaisesRegex(BackendError, "10008"):
+            backend.op_job({"job_id": "123"})
+
+    def test_job_list_returns_compact_normalized_items(self):
+        backend = OpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=1)
+        )
+        backend._hpc_context = lambda options: (
+            "https://hpc.test",
+            "token",
+            "scheduler",
+            "user",
+            {"clusterId": "region"},
+        )
+        backend._json_request = lambda method, url, **kwargs: [
+            {"jobId": "1", "jobStatus": "statR", "jobName": "compile"},
+            {"jobId": "2", "jobState": "statDE", "jobName": "cancelled"},
+        ]
+        result = backend.op_jobs({"scope": "active", "limit": 20})
+        self.assertEqual(result["total"], 2)
+        self.assertEqual(result["items"][0]["state"], "RUNNING")
+        self.assertEqual(result["items"][1]["state"], "CANCELLED")
 
 
 class NotebookTests(unittest.TestCase):
@@ -441,6 +520,35 @@ class OpenAPIOperationTests(unittest.TestCase):
         self.assertEqual(len(chunks), 3)
         self.assertEqual([item[2] for item in chunks], [1024 * 1024, 1024 * 1024, 17])
         self.assertEqual(result["chunks"], 3)
+
+    def test_upload_treats_remote_path_as_directory(self):
+        self.backend._efile_context = lambda options: (
+            "https://example.test/efile",
+            "redacted-token",
+            {},
+        )
+        captured = {}
+        self.backend._multipart_request = (
+            lambda url, token, fields, file_name, file_bytes, content_type: captured.update(
+                fields=fields,
+                file_name=file_name,
+            )
+        )
+        with tempfile.NamedTemporaryFile(suffix=".bin") as file:
+            file.write(b"payload")
+            file.flush()
+            result = self.backend.execute(
+                "upload",
+                {
+                    "local_path": file.name,
+                    "remote_dir": "/public/home/alice/mesh",
+                    "chunk_size": 0,
+                },
+            )
+        self.assertEqual(captured["fields"]["path"], "/public/home/alice/mesh")
+        self.assertEqual(captured["file_name"], Path(file.name).name)
+        self.assertEqual(result["remote_dir"], "/public/home/alice/mesh")
+        self.assertNotIn(Path(file.name).name, captured["fields"]["path"])
 
     def test_mkdir_preview_defaults_to_not_creating_parents(self):
         preview = self.backend.preview("mkdir", {"path": "/public/home/alice/work"})

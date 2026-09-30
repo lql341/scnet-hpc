@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 - 2026-09-30
+
+- Complete job-state normalization and fall back from stale realtime job records to the
+  documented history endpoint.
+- Add compact active/history job listing and persist OpenAPI region tokens with a locked,
+  permission-restricted cache.
+- Clarify that OpenAPI uploads take a remote directory; the local filename is supplied
+  separately and is never part of the directory path.
+
 ## 0.6.0 - 2026-09-30
 
 - Surface the job lifecycle in the downstream DSH bundle: submission, status, logs, and
