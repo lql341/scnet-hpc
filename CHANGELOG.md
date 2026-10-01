@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.3 - 2026-10-01
+
+- Make queue preflight fail closed for mutating submissions and add bounded job waiting.
+- Add account and resource summaries, structured JSON error categories, and automatic download
+  filename derivation.
+- Normalize ordinary and chunked upload results to the same remote directory/filename contract.
+
 ## 0.6.2 - 2026-09-30
 
 - Query completed jobs through the filtered history-list endpoint instead of the slow,

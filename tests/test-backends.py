@@ -272,6 +272,40 @@ class OpenAPIJobTests(unittest.TestCase):
         self.assertEqual(result["items"][0]["state"], "RUNNING")
         self.assertEqual(result["items"][1]["state"], "CANCELLED")
 
+    def test_account_summary_normalizes_user_response(self):
+        backend = OpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=1)
+        )
+        backend._center = lambda options: (
+            {"clusterUserInfo": {"userName": "alice"}},
+            "token",
+            {"clusterId": "11250", "clusterName": "Kunshan"},
+        )
+        backend._json_request = lambda method, url, **kwargs: {
+            "userName": "alice",
+            "accountStatus": "Normal",
+            "accountBalance": "12.50",
+        }
+        result = backend.op_account({"region": "11250"})
+        self.assertEqual(result["user"], "alice")
+        self.assertEqual(result["balance"], "12.50")
+        self.assertEqual(result["region_name"], "Kunshan")
+
+    def test_resource_summary_combines_queues_and_limits(self):
+        backend = OpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=1)
+        )
+        backend._center = lambda options: (
+            {},
+            "token",
+            {"clusterId": "11250", "clusterName": "Kunshan"},
+        )
+        backend.op_queues = lambda options: [{"partition": "debug"}]
+        backend.op_limits = lambda options: {"user_max_cpus": 8}
+        result = backend.op_resource_summary({"region": "11250"})
+        self.assertEqual(result["queues"][0]["partition"], "debug")
+        self.assertEqual(result["limits"]["user_max_cpus"], 8)
+
 
 class TokenCacheTests(unittest.TestCase):
     def setUp(self):
