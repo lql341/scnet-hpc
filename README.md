@@ -2,7 +2,7 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.3**
+Current release: **0.6.4**
 
 ```bash
 python3 scripts/scnet.py --version
@@ -146,7 +146,9 @@ python3 scripts/scnet.py setup
 ```
 
 On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Service when
-available. Otherwise inject them through environment variables.
+available. Otherwise inject them through environment variables. On Ubuntu/Debian, install
+`libsecret-tools` (`sudo apt install libsecret-tools`) to enable `secret-tool` storage; this is
+needed for secure local credential storage, not for API calls using environment variables.
 
 Notebook is integrated as a separate service domain with read-only discovery and
 confirmation-driven lifecycle operations:
@@ -201,7 +203,9 @@ When multiple profiles exist, pass `--cluster <name>` explicitly.
 
 ## Backend selection
 
-SSH remains the default. List built-in and discovered backends with:
+OpenAPI with AK/SK is the preferred default for structured cluster operations. SSH remains
+available for environment setup, compilation, interactive diagnosis, and other shell workflows.
+List built-in and discovered backends with:
 
 ```bash
 python3 scripts/scnet.py backends
@@ -215,9 +219,9 @@ python3 scripts/scnet.py --backend openapi clusters
 python3 scripts/scnet.py --backend openapi --region <region-id> job <job-id>
 ```
 
-Selection precedence is `--backend`, `SCNET_HPC_BACKEND`, profile `DEFAULT_BACKEND`, then
-the saved setup-panel default, then profile `DEFAULT_BACKEND`, then `ssh`. The client does not
-silently fall back between backends.
+Selection precedence is `--backend`, `SCNET_HPC_BACKEND`, saved setup-panel default, profile
+`DEFAULT_BACKEND`, then `openapi`. Use `--backend ssh` to select SSH explicitly. The client does
+not silently fall back between backends.
 
 OpenAPI credentials are injected through environment variables or a host credential manager;
 never put AK, SK, or tokens in a profile. See
