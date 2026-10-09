@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.4 - 2026-10-09
+
+- Prefer OpenAPI with AK/SK for new configurations and backend selection; retain SSH as an
+  explicit secondary backend for shell-based workflows.
+- Document Ubuntu/Debian `libsecret-tools` installation for secure local AK/SK storage and
+  clarify that environment-injected credentials do not require it.
+
 ## 0.6.3 - 2026-10-01
 
 - Make queue preflight fail closed for mutating submissions and add bounded job waiting.
