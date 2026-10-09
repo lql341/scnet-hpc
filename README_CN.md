@@ -2,7 +2,7 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.6.3**
+当前版本：**0.6.4**
 
 ```bash
 python3 scripts/scnet.py --version
@@ -169,7 +169,7 @@ OpenAPI 区域支持多选：使用 ↑/↓ 移动、Space 勾选、`a` 全选�
 AK/SK 获取路径：登录 SCNet，进入“个人中心 → 访问控制”，生成并下载授权码。配置面板
 支持 ↑/↓ 移动并按 Enter 确认，也可以输入数字后按 Enter；直接按 Enter 使用当前默认项。
 macOS Terminal、Ubuntu Terminal 和 Debian Terminal 的操作方式相同。Ubuntu/Debian
-可用 `sudo apt install libsecret-tools` 安装 Secret Service 命令行工具。
+可用 `sudo apt install libsecret-tools` 安装 Secret Service 命令行工具，以便安全保存 AK/SK；如果通过环境变量提供凭据，则无需安装。
 
 配置后可以只读检查：
 
@@ -194,7 +194,8 @@ profile 包含连接地址、调度限制、分区、硬件、module、网络观
 
 ## 选择 backend
 
-SSH 仍是默认 backend。查看内置和已发现的 backend：
+OpenAPI AK/SK 是结构化集群操作的优先 backend；SSH 继续用于环境配置、编译、交互式诊断
+和其他 shell 工作流。查看内置和已发现的 backend：
 
 ```bash
 python3 scripts/scnet.py backends
@@ -209,8 +210,8 @@ python3 scripts/scnet.py --backend openapi --region <region-id> job <job-id>
 ```
 
 选择优先级为：显式 `--backend`、`SCNET_HPC_BACKEND`、配置面板保存的默认 backend、
-profile 中的 `DEFAULT_BACKEND`、最后回退到 `ssh`。一个 backend 失败时不会静默切换到
-另一个。
+profile 中的 `DEFAULT_BACKEND`、最后回退到 `openapi`。需要 SSH 时使用 `--backend ssh`。
+一个 backend 失败时不会静默切换到另一个。
 
 OpenAPI 凭据通过环境变量或宿主凭据管理器注入；不得把 AK、SK 或 token 写入 profile。
 具体配置见 [`references/openapi.md`](references/openapi.md)。未来 MCP bridge、官方
