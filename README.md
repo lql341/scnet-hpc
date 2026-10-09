@@ -2,11 +2,18 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.4**
+Current release: **0.6.5**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
+
+## 0.6.4 highlights
+
+- OpenAPI with AK/SK is now the preferred backend for structured cluster operations; SSH remains
+  available for environment setup, compilation, and interactive diagnosis.
+- Ubuntu/Debian users can install `libsecret-tools` for secure local credential storage; it is
+  optional when credentials are provided through environment variables.
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
 profile-based SSH, SCNet OpenAPI, and pluggable future backends. It complements the [SCNet desktop client](https://www.scnet.cn/ui/mall/client/download),

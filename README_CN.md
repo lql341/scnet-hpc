@@ -2,11 +2,16 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.6.4**
+当前版本：**0.6.5**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
+
+## 0.6.4 更新
+
+- 结构化集群操作优先使用 OpenAPI AK/SK；环境配置、编译和交互式诊断仍可使用 SSH。
+- Ubuntu/Debian 可安装 `libsecret-tools` 安全保存本地凭据；通过环境变量提供 AK/SK 时无需安装。
 
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
 的 SSH、SCNet OpenAPI 和可插拔 backend 完成集群连接、资源申请、作业生成、运行诊断

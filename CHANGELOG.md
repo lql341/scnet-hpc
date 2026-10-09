@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.5 - 2026-10-09
+
+- Clarify that the release workflow reads the package version instead of documenting a fixed
+  version number.
+- Surface the 0.6.4 OpenAPI-first default and optional Ubuntu/Debian `libsecret-tools` credential
+  storage guidance in distribution READMEs.
+
 ## 0.6.4 - 2026-10-09
 
 - Prefer OpenAPI with AK/SK for new configurations and backend selection; retain SSH as an
