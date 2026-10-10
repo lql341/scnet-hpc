@@ -14,7 +14,6 @@ on:
       - "clusters/**"
       - "references/**"
       - "scripts/**"
-      - ".github/downstream/codex-release.yml"
       - ".github/scripts/release_docs.py"
       - ".github/workflows/sync-codex-scnet-hpc.yml"
   workflow_dispatch:
@@ -122,7 +121,6 @@ jobs:
           cp ../scnet-hpc/RELEASE_HIGHLIGHTS_CN.md RELEASE_HIGHLIGHTS_CN.md
           mkdir -p .github/scripts
           cp ../scnet-hpc/.github/scripts/release_docs.py .github/scripts/release_docs.py
-          cp ../scnet-hpc/.github/downstream/codex-release.yml .github/workflows/release.yml
           python3 - <<'PY'
           from pathlib import Path
 
@@ -168,6 +166,7 @@ jobs:
           PY
           python3 .github/scripts/release_docs.py --check \
             --version-file plugins/scnet-hpc/skills/scnet-hpc/VERSION
+          test -f .github/workflows/release.yml
           for script in plugins/scnet-hpc/skills/scnet-hpc/scripts/*.sh; do bash -n "$script"; done
           test -x plugins/scnet-hpc/skills/scnet-hpc/scripts/setup.sh
           python3 -m py_compile plugins/scnet-hpc/skills/scnet-hpc/scripts/*.py plugins/scnet-hpc/skills/scnet-hpc/scripts/scnet_sdk/*.py plugins/scnet-hpc/skills/scnet-hpc/scripts/scnet_backends/*.py

@@ -13,7 +13,6 @@ on:
       - "clusters/**"
       - "references/**"
       - "scripts/**"
-      - ".github/downstream/dsh-publish.yml"
       - ".github/scripts/release_docs.py"
       - ".github/workflows/sync-dsh-scnet.yml"
   workflow_dispatch:
@@ -113,8 +112,6 @@ jobs:
           cp ../scnet-hpc/RELEASE_HIGHLIGHTS_CN.md RELEASE_HIGHLIGHTS_CN.md
           mkdir -p .github/scripts
           cp ../scnet-hpc/.github/scripts/release_docs.py .github/scripts/release_docs.py
-          cp ../scnet-hpc/.github/downstream/dsh-publish.yml .github/workflows/publish.yml
-          rm -f .github/workflows/prepare-release.yml
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -176,6 +173,8 @@ jobs:
           npm run validate
           python3 .github/scripts/release_docs.py --check \
             --version-file skills/scnet-hpc/VERSION
+          test -f .github/workflows/publish.yml
+          test ! -e .github/workflows/prepare-release.yml
 
       - name: Verify canonical backend entrypoints
         working-directory: scnet-hpc
