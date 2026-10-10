@@ -2,16 +2,20 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.6.5**
+当前版本：**0.6.6**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
-## 0.6.4 更新
+<!-- scnet-release:start -->
+## 0.6.6 更新
 
-- 结构化集群操作优先使用 OpenAPI AK/SK；环境配置、编译和交互式诊断仍可使用 SSH。
-- Ubuntu/Debian 可安装 `libsecret-tools` 安全保存本地凭据；通过环境变量提供 AK/SK 时无需安装。
+- README 的版本亮点改为由 canonical 单一来源生成；每次发布替换当前版本区块，不再逐版
+  堆叠成流水账。
+- canonical Skill 和 Codex Plugin 在校验通过后自动创建 Git tag 与 GitHub Release。
+- DSH 分发仓库在同步版本进入 `main` 后，自动完成 npm 发布、Git tag 和 GitHub Release。
+<!-- scnet-release:end -->
 
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
 的 SSH、SCNet OpenAPI 和可插拔 backend 完成集群连接、资源申请、作业生成、运行诊断
@@ -318,5 +322,7 @@ python3 tests/test-backends.py
 ## 版本管理
 
 源 Skill、DSH package 和 Codex Plugin 使用同一套 SemVer 版本。根目录 `VERSION` 是唯一
-版本来源，CLI JSON 输出会携带版本，Git tag 使用 `v<版本>`。用户可见更新记录在
-[CHANGELOG.md](CHANGELOG.md)。
+版本来源；每次更新中英文 `RELEASE_HIGHLIGHTS` 当前版本摘要后，运行
+`python3 .github/scripts/release_docs.py`。CI 会检查生成的 README 区块、同步两个分发
+仓库，并在校验通过后发布对应的 Git tag、GitHub Release 与 npm package。完整历史
+保留在 [CHANGELOG.md](CHANGELOG.md)。

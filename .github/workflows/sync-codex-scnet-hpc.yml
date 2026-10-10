@@ -6,11 +6,16 @@ on:
       - main
     paths:
       - "VERSION"
+      - "CHANGELOG.md"
+      - "RELEASE_HIGHLIGHTS.md"
+      - "RELEASE_HIGHLIGHTS_CN.md"
       - "SKILL.md"
       - "agents/**"
       - "clusters/**"
       - "references/**"
       - "scripts/**"
+      - ".github/downstream/codex-release.yml"
+      - ".github/scripts/release_docs.py"
       - ".github/workflows/sync-codex-scnet-hpc.yml"
   workflow_dispatch:
 
@@ -112,23 +117,39 @@ jobs:
       - name: Align Codex release README
         working-directory: codex-scnet-hpc
         run: |
+          cp ../scnet-hpc/CHANGELOG.md CHANGELOG.md
+          cp ../scnet-hpc/RELEASE_HIGHLIGHTS.md RELEASE_HIGHLIGHTS.md
+          cp ../scnet-hpc/RELEASE_HIGHLIGHTS_CN.md RELEASE_HIGHLIGHTS_CN.md
+          mkdir -p .github/scripts
+          cp ../scnet-hpc/.github/scripts/release_docs.py .github/scripts/release_docs.py
+          cp ../scnet-hpc/.github/downstream/codex-release.yml .github/workflows/release.yml
           python3 - <<'PY'
-          import re
           from pathlib import Path
 
-          version = Path("../scnet-hpc/VERSION").read_text().strip()
-          markers = {
-              "README.md": rf"(?m)^(Current release:\s*\*\*)[^*]+(\*\*)$",
-              "README_CN.md": rf"(?m)^(当前版本：\s*\*\*)[^*]+(\*\*)$",
+          replacements = {
+              "README.md": (
+                  "Updates to canonical Skill content are synchronized through an automated pull request. "
+                  "The target repository validates synchronization, shell and Python syntax, Plugin metadata, "
+                  "and repository hygiene before merge.",
+                  "Updates to canonical Skill content are synchronized through an automated pull request. "
+                  "After the target validation passes, the workflow merges the PR and publishes the matching "
+                  "Git tag and GitHub Release automatically.",
+              ),
+              "README_CN.md": (
+                  "canonical Skill 内容更新后，会通过自动 workflow 创建同步 PR。合并前由目标仓库检查同步状态、Shell/Python 语法、Plugin 元数据和仓库卫生。",
+                  "canonical Skill 内容更新后，会通过自动 workflow 创建同步 PR。目标仓库校验同步状态、"
+                  "Shell/Python 语法、Plugin 元数据和仓库卫生；校验通过后自动合并，并发布对应的 "
+                  "Git tag 与 GitHub Release。",
+              ),
           }
-          for name, pattern in markers.items():
+          for name, (old, new) in replacements.items():
               path = Path(name)
               text = path.read_text()
-              updated, count = re.subn(pattern, rf"\g<1>{version}\g<2>", text)
-              if count != 1:
-                  raise SystemExit(f"expected one release marker in {name}, found {count}")
-              path.write_text(updated)
+              if old in text:
+                  path.write_text(text.replace(old, new))
           PY
+          python3 .github/scripts/release_docs.py \
+            --version-file plugins/scnet-hpc/skills/scnet-hpc/VERSION
 
       - name: Validate Codex plugin
         working-directory: codex-scnet-hpc
@@ -145,12 +166,15 @@ jobs:
           marketplace = json.loads(Path(".agents/plugins/marketplace.json").read_text())
           assert any(entry["name"] == "scnet-hpc" for entry in marketplace["plugins"])
           PY
+          python3 .github/scripts/release_docs.py --check \
+            --version-file plugins/scnet-hpc/skills/scnet-hpc/VERSION
           for script in plugins/scnet-hpc/skills/scnet-hpc/scripts/*.sh; do bash -n "$script"; done
           test -x plugins/scnet-hpc/skills/scnet-hpc/scripts/setup.sh
           python3 -m py_compile plugins/scnet-hpc/skills/scnet-hpc/scripts/*.py plugins/scnet-hpc/skills/scnet-hpc/scripts/scnet_sdk/*.py plugins/scnet-hpc/skills/scnet-hpc/scripts/scnet_backends/*.py
           git diff --check
 
       - name: Open sync pull request
+        id: sync-pr
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.DSH_SCNET_PAT }}
@@ -162,5 +186,14 @@ jobs:
           body: |
             Automatically synchronized from lql341/scnet-hpc@${{ github.sha }}.
 
-            The Codex skills-only Plugin wrapper is generated from the canonical Skill repository.
-            Please review the synchronized Skill content and allow the target repository validation to complete before merging.
+            The Codex skills-only Plugin wrapper and release metadata are generated from the canonical Skill repository.
+            The workflow will merge this PR after the required target validation passes.
+
+      - name: Validate and merge sync pull request
+        if: steps.sync-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.DSH_SCNET_PAT }}
+          PR_URL: ${{ steps.sync-pr.outputs.pull-request-url }}
+        run: |
+          gh pr checks "$PR_URL" --required --watch --interval 10
+          gh pr merge "$PR_URL" --merge --delete-branch

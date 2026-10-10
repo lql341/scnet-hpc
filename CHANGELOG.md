@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.6 - 2026-10-10
+
+- Generate one current-release README block from canonical English and Chinese highlight files,
+  replacing the previous version block instead of accumulating release history in every README.
+- Automatically create Git tags and GitHub Releases for the canonical Skill and Codex Plugin.
+- Automatically publish the synchronized DSH package to npm and create its matching Git tag and
+  GitHub Release after validation.
+
 ## 0.6.5 - 2026-10-09
 
 - Clarify that the release workflow reads the package version instead of documenting a fixed

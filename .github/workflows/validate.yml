@@ -26,6 +26,8 @@ jobs:
         run: |
           grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' VERSION
           test "$(python3 scripts/scnet.py --version)" = "scnet-hpc $(cat VERSION)"
+          python3 .github/scripts/release_docs.py --check
+          python3 tests/test-release-docs.py
 
       - name: Test job generation
         run: bash tests/test-new-job.sh

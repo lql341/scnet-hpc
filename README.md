@@ -2,18 +2,22 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.5**
+Current release: **0.6.6**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
-## 0.6.4 highlights
+<!-- scnet-release:start -->
+## 0.6.6 highlights
 
-- OpenAPI with AK/SK is now the preferred backend for structured cluster operations; SSH remains
-  available for environment setup, compilation, and interactive diagnosis.
-- Ubuntu/Debian users can install `libsecret-tools` for secure local credential storage; it is
-  optional when credentials are provided through environment variables.
+- README release highlights now come from one canonical source and replace the previous release
+  block instead of accumulating a version-by-version timeline.
+- The canonical Skill and Codex Plugin now create Git tags and GitHub Releases automatically after
+  validation.
+- The DSH distribution now publishes npm, its Git tag, and its GitHub Release automatically after
+  a synchronized version reaches `main`.
+<!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
 profile-based SSH, SCNet OpenAPI, and pluggable future backends. It complements the [SCNet desktop client](https://www.scnet.cn/ui/mall/client/download),
@@ -333,5 +337,7 @@ Redistributions must retain the copyright notice and the MIT license notice. The
 ## Versioning
 
 The source Skill, DSH package, and Codex Plugin use the same SemVer release train. `VERSION` is
-the source of truth, CLI JSON output includes the version, and release tags use `v<version>`.
-See [CHANGELOG.md](CHANGELOG.md) for user-visible changes.
+the source of truth. Update the two `RELEASE_HIGHLIGHTS` files for the current English and Chinese
+summary, then run `python3 .github/scripts/release_docs.py`. CI checks the generated README block,
+synchronizes both distribution repositories, and publishes the matching tags, GitHub Releases,
+and npm package after validation. Full history remains in [CHANGELOG.md](CHANGELOG.md).

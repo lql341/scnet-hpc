@@ -1,0 +1,66 @@
+name: Release Codex plugin
+
+on:
+  workflow_run:
+    workflows: ["Validate Codex plugin"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-codex-scnet-hpc
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Validate synchronized release
+        id: preflight
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "A newer main commit exists; its validation run will publish the release."
+            echo "should-release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 .github/scripts/release_docs.py --check \
+            --version-file plugins/scnet-hpc/skills/scnet-hpc/VERSION
+          version="$(tr -d '[:space:]' < plugins/scnet-hpc/skills/scnet-hpc/VERSION)"
+          plugin_version="$(python3 -c 'import json; print(json.load(open("plugins/scnet-hpc/.codex-plugin/plugin.json"))["version"])')"
+          test "$version" = "$plugin_version"
+          echo "should-release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and GitHub Release
+        if: steps.preflight.outputs.should-release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(tr -d '[:space:]' < plugins/scnet-hpc/skills/scnet-hpc/VERSION)"
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "${tag} is already published"
+            exit 0
+          fi
+          git fetch origin --tags
+          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            git tag "$tag"
+            git push origin "$tag"
+          fi
+          args=(release create "$tag" --verify-tag --title "scnet-hpc Codex Plugin ${tag}" --notes-file RELEASE_HIGHLIGHTS.md)
+          if [[ "$version" == *-* ]]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}"
