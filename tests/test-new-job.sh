@@ -7,6 +7,7 @@ TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 export SCNET_HPC_LIVE_NODE_COUNT=no
+export SCNET_PYTHON="$(command -v python3)"
 
 (
     cd "$TEST_DIR"

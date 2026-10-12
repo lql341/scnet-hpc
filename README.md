@@ -2,21 +2,19 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.6**
+Current release: **0.6.7**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.6 highlights
+## 0.6.7 highlights
 
-- README release highlights now come from one canonical source and replace the previous release
-  block instead of accumulating a version-by-version timeline.
-- The canonical Skill and Codex Plugin now create Git tags and GitHub Releases automatically after
-  validation.
-- The DSH distribution now publishes npm, its Git tag, and its GitHub Release automatically after
-  a synchronized version reaches `main`.
+- Desktop hosts can inject a verified Python 3 interpreter through `DSH_SCNET_PYTHON` or
+  `SCNET_PYTHON`; local entrypoints no longer require the command name `python3`.
+- Shared shell helpers reject Python 2 and invalid configured interpreters before running
+  OpenAPI or local job-generation code.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
