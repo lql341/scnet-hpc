@@ -2,19 +2,19 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.7**
+Current release: **0.6.8**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.7 highlights
+## 0.6.8 highlights
 
-- Desktop hosts can inject a verified Python 3 interpreter through `DSH_SCNET_PYTHON` or
-  `SCNET_PYTHON`; local entrypoints no longer require the command name `python3`.
-- Shared shell helpers reject Python 2 and invalid configured interpreters before running
-  OpenAPI or local job-generation code.
+- The connector now exposes stable error codes and JSON-safe envelopes for authentication,
+  callback, network, scope, region, and platform failures.
+- OAuth callback sessions are one-shot and reject replay; platform keyring adapters have no
+  plaintext fallback.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
