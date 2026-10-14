@@ -2,18 +2,19 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.6.8**
+当前版本：**0.6.9**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.8 更新
+## 0.6.9 更新
 
-- connector 现在提供稳定错误码和 JSON 安全错误信封，覆盖认证、回调、网络、权限、
-  区域和平台能力失败。
-- OAuth 回调会话只允许消费一次并拒绝重放；平台 keyring 适配器不提供明文回退。
+- OpenAPI 与 SSH 的 CLI 默认使用精简输出；需要更多信息时使用 `--details` 或 `--raw`，
+  作业等待改为程序内部有界轮询，减少重复输出。
+- OpenAPI 在作业状态终结前通过账本确认，SSH 作业离开实时队列后自动回退到账本查询。
+- 首次配置默认选择 OpenAPI，已有用户保留原 backend 偏好，更新设置时保留无关配置字段。
 <!-- scnet-release:end -->
 
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
@@ -57,7 +58,7 @@ scnet-hpc/
 ├── scripts/
 │   ├── scnet.py              backend 统一命令行入口
 │   ├── scnet_backends/       SSH、OpenAPI 和外部适配器
-│   ├── scnet_sdk/            共享 OpenAPI client 和 Notebook 只读服务
+│   ├── scnet_sdk/            共享 OpenAPI client 和 Notebook 生命周期服务
 │   ├── _common.sh           profile 加载和公共函数
 │   ├── setup-ssh.sh         SSH 配置
 │   ├── new-job.sh           Slurm 脚本生成
@@ -139,8 +140,11 @@ cd scnet-hpc
 
 Bash 面板可以重复运行，用于选择默认 profile、更新某个区域的 SSH 用户和私钥，并检查
 密钥文件名中的有效期；
-不要求先安装 Python。它只把非敏感选择保存到
+默认 OpenAPI 配置需要 Python 3。没有 Python 时仅支持首次 SSH 配置；更新已有主配置需要
+Python 3，以保留其他字段。首次进入默认选择 `new`，已有配置默认选择 `modify`；
+backend 默认使用已有选择，没有选择时使用 OpenAPI。非敏感主配置保存到
 `~/.config/scnet-hpc/config.json`（或 `$XDG_CONFIG_HOME/scnet-hpc/config.json`），
+SSH 和 OpenAPI 区域元数据分别保存到同目录下的 `ssh/<profile>.json` 和 `openapi.json`，
 不会保存 AK、SK 或 token。
 
 OpenAPI 只需要配置一次平台用户名、AK 和 SK；区域 ID、区域用户名和调度器会自动发现。
@@ -294,7 +298,7 @@ OpenAPI backend 现在支持创建远端目录，超过 8 MiB 的文件会自动
 | [`quickstart-en.md`](references/quickstart-en.md) | 英文快速操作指南 |
 | [`backends.md`](references/backends.md) | backend 选择、能力和扩展协议 |
 | [`openapi.md`](references/openapi.md) | OpenAPI 凭据、命令和验证边界 |
-| [`notebook.md`](references/notebook.md) | Notebook 只读服务和敏感字段脱敏 |
+| [`notebook.md`](references/notebook.md) | Notebook 查询、生命周期和敏感字段脱敏 |
 
 ## 验证
 
@@ -325,3 +329,20 @@ python3 tests/test-backends.py
 `python3 .github/scripts/release_docs.py`。CI 会检查生成的 README 区块、同步两个分发
 仓库，并在校验通过后发布对应的 Git tag、GitHub Release 与 npm package。完整历史
 保留在 [CHANGELOG.md](CHANGELOG.md)。
+
+## 精简输出与等待
+
+默认作业查询只返回 ID、状态、队列，以及存在的退出码或失败原因；空字段被省略，
+`0` 和 `false` 保留。`--details` 返回完整归一化字段，`--raw` 返回 backend 原始数据。
+`--json` 保留 JSON 信封，默认使用紧凑格式；`--dry-run` 始终保留完整预览。
+
+```bash
+python3 scripts/scnet.py --region <id> job <job-id>
+python3 scripts/scnet.py --details --region <id> job <job-id>
+python3 scripts/scnet.py --region <id> wait <job-id> --interval 3 --wait-timeout 180
+```
+
+`wait` 在程序内部轮询，只输出最终结果或超时摘要。OpenAPI 实时接口的 `COMPLETED`
+可能对应刚取消的作业；历史记录未确认前显示 `FINALIZING`，因此等待可能受账本更新延迟影响。
+传输结果默认返回目标路径和字节数，日志仅返回请求的日志行。调用方若需要旧版完整字段，
+请显式添加 `--details`。SDK/backend 返回结构不受 CLI 精简影响。

@@ -26,8 +26,9 @@ from scnet_backends.openapi import (  # noqa: E402
     normalize_job,
     service_endpoint,
 )
-from scnet_backends.profile import list_profiles, parse_profile  # noqa: E402
-from scnet import _parse_multi_numbers, apply_openapi_defaults  # noqa: E402
+from scnet_backends.profile import list_profiles, parse_profile
+from scnet_backends.ssh import SSHBackend  # noqa: E402
+from scnet import _parse_multi_numbers, apply_openapi_defaults, summarize_output, _job_terminal, compact_output, main, wait_for_job  # noqa: E402
 from scnet_config import (  # noqa: E402
     config_path,
     load_user_config,
@@ -175,6 +176,87 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(options["username"], "wuzhen-user")
 
 
+class CompactOutputTests(unittest.TestCase):
+    def test_job_schema_is_shared_and_preserves_zero_exit_code(self):
+        result = summarize_output("job", {"job_id": "1", "state": "COMPLETED",
+            "partition": "cpu", "exit_code": "0:0", "reason": None,
+            "work_dir": "/private/work", "nodes": 1})
+        self.assertEqual(result, {"job_id": "1", "state": "COMPLETED", "queue": "cpu", "exit_code": "0:0"})
+        self.assertEqual(summarize_output("job", {"job_id": "1", "state": "FAILED", "exit_code": 0})["exit_code"], 0)
+
+    def test_cancelled_and_unconfirmed_states_are_not_hidden(self):
+        self.assertTrue(_job_terminal("CANCELLED by 123"))
+        self.assertFalse(_job_terminal("EXITING"))
+        data = summarize_output("wait", {"job_id": "1", "state": "FINALIZING", "state_confirmed": False})
+        self.assertIs(data["state_confirmed"], False)
+        self.assertEqual(summarize_output("job", {"state": "CANCELLED by 123"})["state"], "CANCELLED")
+
+    def test_wait_timeout_keeps_latest_state(self):
+        result = summarize_output("wait", {"job": {"job_id": "1", "state": "PENDING", "work_dir": "/work"},
+            "timed_out": True, "waited_seconds": 3})
+        self.assertEqual(result["job"], {"job_id": "1", "state": "PENDING"})
+        self.assertTrue(result["timed_out"])
+
+    def test_transfers_and_logs_have_minimal_results(self):
+        self.assertEqual(summarize_output("upload", {"remote_dir": "/work", "remote_filename": "file", "bytes": 0}),
+                         {"path": "/work/file", "bytes": 0})
+        self.assertEqual(summarize_output("logs", {"lines": ["ok"], "path": "/work/log", "total_pages": 99}), {"lines": ["ok"]})
+        self.assertEqual(compact_output("logs", {"lines": ["ok"]}), "ok")
+        self.assertEqual(summarize_output("cancel", {"job_id": "1", "cancelled": False, "result": "large"}),
+                         {"job_id": "1", "cancelled": False})
+
+    def test_cli_details_and_dry_run_preserve_payloads(self):
+        import contextlib
+        import io
+        from unittest.mock import Mock
+        backend = Mock()
+        payload = {"job_id": "1", "state": "RUNNING", "queue": "cpu", "work_dir": "/work", "reason": None}
+        backend.execute.return_value = payload
+        backend.preview.return_value = {"command": "review-me", "request": {"name": "job"}}
+        with patch("scnet.load_user_config", return_value={}), patch("scnet.load_profile", return_value=(None, {})), patch("scnet.create_backend", return_value=backend):
+            for flag in ([], ["--details"], ["--raw"]):
+                stream = io.StringIO()
+                with contextlib.redirect_stdout(stream):
+                    self.assertEqual(main(["--backend", "openapi", "--json", *flag, "job", "1"]), 0)
+                result = json.loads(stream.getvalue())["data"]
+                self.assertEqual("work_dir" in result, bool(flag))
+                if flag:
+                    self.assertIn("reason", result)
+            stream = io.StringIO()
+            with contextlib.redirect_stdout(stream):
+                self.assertEqual(main(["--backend", "openapi", "--json", "--dry-run", "submit"]), 0)
+            self.assertEqual(json.loads(stream.getvalue())["data"]["request"], {"name": "job"})
+
+    def test_raw_log_wrapper_is_not_discarded_by_text_formatter(self):
+        payload = {"data": {"lines": ["ok"]}, "raw": {"total": 1}}
+        self.assertEqual(json.loads(compact_output("logs", payload, detailed=True)), payload)
+
+    def test_wait_polls_inside_one_call(self):
+        from unittest.mock import Mock
+        backend = Mock()
+        backend.execute.side_effect = [{"job_id": "1", "state": "FINALIZING"}, {"job_id": "1", "state": "CANCELLED by 123"}]
+        with patch("scnet.time.sleep"):
+            result = wait_for_job(backend, {"wait_timeout": 10, "interval": 1})
+        self.assertFalse(result["timed_out"])
+        self.assertEqual(backend.execute.call_count, 2)
+
+
+class SSHHistoryTests(unittest.TestCase):
+    def test_missing_live_id_falls_back_to_accounting(self):
+        backend = SSHBackend(BackendContext(REPO_ROOT, "demo", {"CLUSTER_ID": "demo"}))
+        with patch.object(backend, "_ssh", side_effect=[BackendError("slurm_load_jobs error: Invalid job id specified"), "42|CANCELLED by 123|cpu|00:00:01|00:01:00|1|1|0:0\n"]) as call:
+            result = backend.op_job({"job_id": "42"})
+        self.assertEqual(result["state"], "CANCELLED by 123")
+        self.assertEqual(call.call_count, 2)
+
+    def test_other_ssh_failures_are_not_hidden(self):
+        backend = SSHBackend(BackendContext(REPO_ROOT, "demo", {"CLUSTER_ID": "demo"}))
+        with patch.object(backend, "_ssh", side_effect=BackendError("Permission denied")) as call:
+            with self.assertRaisesRegex(BackendError, "Permission denied"):
+                backend.op_job({"job_id": "42"})
+        self.assertEqual(call.call_count, 1)
+
+
 class OpenAPIJobTests(unittest.TestCase):
     def test_all_known_states_have_stable_labels(self):
         expected = {
@@ -251,6 +333,24 @@ class OpenAPIJobTests(unittest.TestCase):
         backend._json_request = request
         with self.assertRaisesRegex(BackendError, "10008"):
             backend.op_job({"job_id": "123"})
+
+    def test_live_completion_prefers_cancelled_accounting_record(self):
+        backend = OpenAPIBackend(BackendContext(REPO_ROOT, None, {}))
+        with patch.object(backend, "_hpc_context", return_value=("https://hpc.test", "token", "scheduler", "user", {})), \
+             patch.object(backend, "_json_request", return_value={"jobId": "42", "jobState": "statC"}), \
+             patch.object(backend, "_history_jobs", return_value=([{"jobId": "42", "jobState": "statDE"}], 1, {})):
+            result = backend.op_job({"job_id": "42"})
+        self.assertEqual(result["state"], "CANCELLED")
+        self.assertEqual(result["source"], "history")
+
+    def test_live_completion_is_provisional_until_accounting_arrives(self):
+        backend = OpenAPIBackend(BackendContext(REPO_ROOT, None, {}))
+        with patch.object(backend, "_hpc_context", return_value=("https://hpc.test", "token", "scheduler", "user", {})), \
+             patch.object(backend, "_json_request", return_value={"jobId": "42", "jobState": "statC"}), \
+             patch.object(backend, "_history_jobs", return_value=([], 0, {})):
+            result = backend.op_job({"job_id": "42"})
+        self.assertEqual(result["state"], "FINALIZING")
+        self.assertFalse(result["state_confirmed"])
 
     def test_job_list_returns_compact_normalized_items(self):
         backend = OpenAPIBackend(

@@ -89,14 +89,14 @@ cat <<EOF
 
 完成。下一步：
 
-  1. 首次配置（不要求 Python）：
+  1. 首次配置（默认 OpenAPI，需要 Python 3）：
        $DST/scripts/setup.sh
 
   2. 查看可用 backend（Python 高级入口）：
        python3 $DST/scripts/scnet.py backends
 
   3. 配置到集群的 SSH 连接：
-       $DST/scripts/setup-ssh.sh <私钥文件>
+       $DST/scripts/setup-ssh.sh --cluster <集群短名> <私钥文件> <用户名>
 
   4. 新增另一个集群：
        $DST/scripts/probe-cluster.sh <ssh别名> <短名> > $DST/clusters/<短名>.conf

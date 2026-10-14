@@ -2,19 +2,21 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.8**
+Current release: **0.6.9**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.8 highlights
+## 0.6.9 highlights
 
-- The connector now exposes stable error codes and JSON-safe envelopes for authentication,
-  callback, network, scope, region, and platform failures.
-- OAuth callback sessions are one-shot and reject replay; platform keyring adapters have no
-  plaintext fallback.
+- Default CLI output is compact across OpenAPI and SSH, with `--details` and `--raw` for
+  progressively richer responses and bounded internal job waiting to reduce repeated output.
+- OpenAPI completion is confirmed against accounting before it becomes terminal, and SSH job
+  lookup falls back to accounting after a job leaves the live queue.
+- First-use setup defaults to OpenAPI, retains existing backend preferences, and preserves
+  unrelated configuration fields when settings are updated.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
@@ -59,7 +61,7 @@ scnet-hpc/
 ├── scripts/
 │   ├── scnet.py              Backend-neutral CLI
 │   ├── scnet_backends/       SSH, OpenAPI, and external adapters
-│   ├── scnet_sdk/            Shared OpenAPI client and Notebook read-only service
+│   ├── scnet_sdk/            Shared OpenAPI client and Notebook lifecycle service
 │   ├── _common.sh           Profile loading and shared functions
 │   ├── setup-ssh.sh         SSH configuration
 │   ├── new-job.sh           Slurm script generation
@@ -141,11 +143,15 @@ The setup lifecycle is explicit:
 ```
 
 The Bash panel can be rerun to select a profile, update an SSH user/key for that profile, and
-record key-expiry metadata inferred from the downloaded filename without requiring Python.
+record key-expiry metadata inferred from the downloaded filename. OpenAPI setup requires Python 3.
+Without Python, only first-time SSH setup is supported; updating an existing main configuration
+requires Python to preserve unrelated fields. The panel defaults to `new` on first use and
+`modify` when configured. It preserves the saved backend choice and otherwise defaults to OpenAPI.
 OpenAPI uses one platform username/AK/SK credential set to discover all authorized regions and
 schedulers. It saves only non-secret choices under
 `~/.config/scnet-hpc/config.json` (or `$XDG_CONFIG_HOME/scnet-hpc/config.json`); AK/SK and
-tokens are never written there.
+tokens are never written there. SSH metadata is stored in `ssh/<profile>.json` and OpenAPI
+region metadata in `openapi.json` under the same configuration directory.
 
 Developers can use the richer Python panel, which validates OpenAPI credentials and discovers
 authorized regions and schedulers:
@@ -307,7 +313,7 @@ Then configure the permanent SSH alias and run a bounded validation job. See
 | [`quickstart-en.md`](references/quickstart-en.md) | English operating guide |
 | [`backends.md`](references/backends.md) | Backend selection, capabilities, and extension protocol |
 | [`openapi.md`](references/openapi.md) | OpenAPI credentials, commands, and validation boundaries |
-| [`notebook.md`](references/notebook.md) | Notebook read-only service and redaction rules |
+| [`notebook.md`](references/notebook.md) | Notebook discovery, lifecycle, and redaction rules |
 
 ## Validation
 
@@ -339,3 +345,22 @@ the source of truth. Update the two `RELEASE_HIGHLIGHTS` files for the current E
 summary, then run `python3 .github/scripts/release_docs.py`. CI checks the generated README block,
 synchronizes both distribution repositories, and publishes the matching tags, GitHub Releases,
 and npm package after validation. Full history remains in [CHANGELOG.md](CHANGELOG.md).
+
+## Compact output and waiting
+
+Default job output includes ID, state, queue, and available exit code or failure reason.
+Empty fields are omitted; zero and false are retained. Use `--details` for all normalized
+fields and `--raw` for backend data. `--json` retains its envelope with compact formatting;
+`--dry-run` always retains the complete preview. Consumers needing the previous complete
+CLI payload must pass `--details`; SDK/backend return schemas are preserved.
+
+```bash
+python3 scripts/scnet.py --region <id> job <job-id>
+python3 scripts/scnet.py --details --region <id> job <job-id>
+python3 scripts/scnet.py --region <id> wait <job-id> --interval 3 --wait-timeout 180
+```
+
+`wait` polls internally and emits only the final result or timeout summary. OpenAPI live
+`COMPLETED` can also describe a recently cancelled job: until accounting confirms the state,
+output reports `FINALIZING`. Waiting may therefore include accounting update latency.
+Transfers return the target path and byte count; logs return only the requested lines.
