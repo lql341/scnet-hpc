@@ -205,5 +205,14 @@ jobs:
           GH_TOKEN: ${{ secrets.DSH_SCNET_PAT }}
           PR_URL: ${{ steps.sync-pr.outputs.pull-request-url }}
         run: |
-          gh pr checks "$PR_URL" --required --watch --interval 10
+          for attempt in {1..12}; do
+            if gh pr checks "$PR_URL" --required --watch --interval 10; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "::error::required checks were not reported for $PR_URL"
+              exit 1
+            fi
+            sleep 5
+          done
           gh pr merge "$PR_URL" --merge --delete-branch
