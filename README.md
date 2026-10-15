@@ -2,21 +2,19 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.9**
+Current release: **0.6.10**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.9 highlights
+## 0.6.10 highlights
 
-- Default CLI output is compact across OpenAPI and SSH, with `--details` and `--raw` for
-  progressively richer responses and bounded internal job waiting to reduce repeated output.
-- OpenAPI completion is confirmed against accounting before it becomes terminal, and SSH job
-  lookup falls back to accounting after a job leaves the live queue.
-- First-use setup defaults to OpenAPI, retains existing backend preferences, and preserves
-  unrelated configuration fields when settings are updated.
+- Coordinate the synchronized downstream DSH release with a protocol-neutral one-shot loopback
+  OAuth callback listener, fixed-path validation, timeout cleanup, and generic browser responses.
+- Keep the canonical Skill endpoint-neutral; no SCNet issuer, endpoint, client ID, scope, or
+  credential is embedded in this release.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
