@@ -24,6 +24,24 @@ profile-based SSH, SCNet OpenAPI, and pluggable future backends. It complements 
 which provides official downloads for Windows 10+, macOS 12 Monterey+ (ARM and x86), and
 Android preview builds.
 
+## What to prepare for first use
+
+Start with **OpenAPI** for queries and standard job management. Add SSH when you need remote
+compilation, environment installation, or shell commands.
+
+| Connection | Required inputs | Where to obtain them |
+| --- | --- | --- |
+| OpenAPI (default) | Platform username, AK, SK | Sign in to SCNet > Personal Center / 个人中心 > Access Control / 访问控制 > generate and download the authorization file. Use its `Accesskey` and `Secretkey` columns. |
+| SSH (as needed) | Target cluster, cluster/Linux username, private-key file path | Select the region in the console > Command Line E-Shell / 命令行 E-Shell > SSH Connection / SSH 连接 at top left. Download the key and check host/port; verify the username with `whoami` in that region's web E-Shell. |
+
+Your account needs access to the target region. Prepare credentials for the chosen connection;
+explanations and offline preparation require none. **Enter AK/SK only in your own terminal's hidden
+prompts. For SSH, supply a local file path. Keep keys and private-key contents out of chat.**
+
+Ask your agent to help configure scnet-hpc for the first time. The Skill explains the inputs and
+their sources before providing a local command for your OS and actual installation directory.
+See the [first-use checklist](references/first-use.md) and configuration panel below.
+
 Supported local operating systems:
 
 - **Linux:** natively supported by the repository scripts;

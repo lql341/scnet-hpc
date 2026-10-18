@@ -5,10 +5,11 @@
 
 ## 首次配置前先分清三件事
 
-1. **凭据**：SSH 私钥从目标区域/集群控制台下载，与 OpenAPI 的 AccessKey/SecretKey 授权码
-   不同。保留原始下载文件，选择含 `BEGIN ... PRIVATE KEY` 的文件，不要选择 `.pub` 公钥。
+1. **凭据**：在控制台选择目标区域，进入“命令行 E-Shell → 左上角 SSH 连接”，下载私钥并
+   记录域名和端口（[官方步骤](https://www2.scnet.cn/help/docs/mainsite/hpc/advanced-guide/advanced-efile/index.html)）。
+   它与 OpenAPI 的 AK/SK 不同；保留原始文件，可能以 `_rsa.txt` 结尾，不要选择 `.pub` 公钥。
 2. **用户名**：填写区域内的集群/Linux 用户名，不一定等于 SCNet 平台登录名；文件名只作为
-   自动推断线索，不确定时在控制台核对。
+   自动推断线索，不确定时在该区域网页 E-Shell 中执行 `whoami` 核对。
 3. **运行环境**：macOS/Linux/WSL2 可运行自动安装脚本。Windows 原生 OpenSSH 的配置和
    WSL2 里的 `~/.ssh` 不共享，在哪个环境运行作业工具，就在该环境配置 SSH。
 

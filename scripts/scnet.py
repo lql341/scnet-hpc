@@ -472,7 +472,10 @@ def _private_key_path(value: str) -> Path:
 
 
 def _ssh_setup_help(cluster: str, profile: Mapping[str, str]) -> None:
-    print("\nSSH 配置：请在目标集群控制台下载 SSH 私钥文件，AK/SK 授权码不能用于 SSH。")
+    print("\nSSH 私钥获取：SCNet 控制台选择目标区域 → 命令行 E-Shell → 左上角 SSH 连接。")
+    print("下载原始私钥文件（可能以 _rsa.txt 结尾），记录页面上的域名和端口，与下方目标核对。")
+    print("官方步骤：https://www2.scnet.cn/help/docs/mainsite/hpc/advanced-guide/advanced-efile/index.html")
+    print("AK/SK 授权码不能用于 SSH。集群用户名可在该区域网页 E-Shell 运行 whoami 核对。")
     print("输入文件路径即可（支持空格和外层引号），不要粘贴私钥正文，也不要选择 .pub 公钥。")
     print(f"连接目标：{profile.get('SSH_HOST')}:{profile.get('SSH_PORT', '22')}，别名 {cluster}。")
     print("用户名是该区域的集群/Linux 用户名，可能与 OpenAPI 平台账号不同。")
@@ -1324,6 +1327,8 @@ def setup_panel(
                 "api/safecertification/get-user-tokens-aksk.html"
             )
             _credential_help()
+            print("字段对应：平台用户名 = SCNet 平台用户名；AK = 下载文件的 Accesskey 列；SK = Secretkey 列。")
+            print("无需填写区域 ID 或接口地址，认证后自动发现已授权区域；账号需已开通区域资源。")
             print("\n请依次复制平台用户名、AccessKey、SecretKey 的值；不需要输入 export 或 $env: 命令。")
             print("AccessKey 和 SecretKey 都不会显示字符或星号；外层引号会自动去除。\n")
             try:

@@ -26,6 +26,12 @@ Obtain AK/SK from the SCNet website:
 3. Open **Access Control / 访问控制**.
 4. Generate and download the authorization file containing AccessKey and SecretKey.
 
+Use the platform username for `user`, the downloaded file's `Accesskey` column for AK,
+and its `Secretkey` column for SK. Copy each value separately, without column labels or shell
+assignments. These credentials differ from both cluster/Linux usernames and model-service API keys.
+For the initial user briefing and commands that work outside the Skill directory, read
+[first-use.md](first-use.md).
+
 Official instructions:
 <https://www.scnet.cn/ac/openapi/doc/2.0/api/safecertification/get-user-tokens-aksk.html>
 
