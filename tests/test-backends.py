@@ -11,7 +11,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -40,6 +41,43 @@ from scnet_config import (  # noqa: E402
 from scnet_sdk.client import SCNetClient  # noqa: E402
 from scnet_sdk.notebook import _redact  # noqa: E402
 from scnet_sdk.notebook import NotebookService  # noqa: E402
+from scnet import doctor_report  # noqa: E402
+
+
+class DoctorConfigTests(unittest.TestCase):
+    def report_config_check(self, os_name, *, exists=True, mode=0o600):
+        path = Mock()
+        path.is_file.return_value = exists
+        path.stat.return_value.st_mode = mode
+        with (
+            patch("scnet.config_path", return_value=path),
+            patch("scnet.os", SimpleNamespace(name=os_name, environ={})),
+            patch("scnet.load_openapi_credentials", return_value=(None, None)),
+        ):
+            report = doctor_report(
+                "openapi", None, {}, {}, no_network=True, timeout=5
+            )
+        check = next(item for item in report["checks"] if item["name"] == "user_config")
+        return check, path
+
+    def test_posix_permissions_remain_enforced(self):
+        for mode, expected in ((0o600, True), (0o644, False)):
+            with self.subTest(mode=oct(mode)):
+                check, path = self.report_config_check("posix", mode=mode)
+                self.assertEqual(check["ok"], expected)
+                path.stat.assert_called_once()
+
+    def test_windows_skips_posix_permission_check(self):
+        check, path = self.report_config_check("nt", mode=0o666)
+        self.assertTrue(check["ok"])
+        self.assertIn("未验证 ACL", check["detail"])
+        path.stat.assert_not_called()
+
+    def test_missing_config_still_fails_on_all_platforms(self):
+        for os_name in ("nt", "posix"):
+            with self.subTest(os_name=os_name):
+                check, _ = self.report_config_check(os_name, exists=False)
+                self.assertFalse(check["ok"])
 
 
 class ProfileTests(unittest.TestCase):
