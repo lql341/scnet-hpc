@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 import platform
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -158,9 +160,42 @@ class SetupOutcomeTests(unittest.TestCase):
             if os.name == "posix":
                 self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_local_followup_command_runs_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "Skill space's $name"
+            (root / "scripts").mkdir(parents=True)
+            (root / "scripts/scnet.py").write_text(
+                "import json, sys; print(json.dumps(sys.argv[1:]))", encoding="utf-8"
+            )
+            with patch("scnet.REPO_ROOT", root):
+                command = scnet._local_cli_command("--backend", "openapi", "doctor")
+            if platform.system() == "Windows":
+                executable = shutil.which("pwsh") or shutil.which("powershell")
+                self.assertIsNotNone(executable)
+                python_path = sys.executable.replace("'", "''")
+                invocation = [executable, "-NoProfile", "-NonInteractive", "-Command", f"Set-Alias python '{python_path}'; {command}"]
+            else:
+                invocation = shlex.split(command)
+                invocation[0] = sys.executable
+            completed = subprocess.run(invocation, cwd=directory, capture_output=True, text=True, check=True)
+            self.assertEqual(json.loads(completed.stdout), ["--backend", "openapi", "doctor"])
+
 
 @unittest.skipUnless(platform.system() == "Windows", "Windows Credential Manager integration")
 class WindowsCredentialTests(unittest.TestCase):
+    def test_invalid_saved_encoding_has_a_redacted_recovery_error(self):
+        target = "scnet-hpc-test-" + uuid.uuid4().hex
+        with patch("scnet_credentials.SERVICE", target):
+            try:
+                credentials.store_openapi_credentials("example-user", "example-access", "example-secret")
+                with patch("ctypes.string_at", return_value=b"\xffprivate-example"):
+                    with self.assertRaises(credentials.CredentialError) as caught:
+                        credentials.load_secure_credentials()
+                self.assertIn("setup modify", str(caught.exception))
+                self.assertNotIn("private-example", str(caught.exception))
+            finally:
+                credentials.delete_openapi_credentials()
+
     def test_native_store_read_update_delete_with_an_isolated_dummy_target(self):
         target = "scnet-hpc-test-" + uuid.uuid4().hex
         with patch("scnet_credentials.SERVICE", target):

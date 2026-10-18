@@ -172,6 +172,8 @@ jobs:
           PY
           python3 .github/scripts/release_docs.py \
             --version-file skills/scnet-hpc/VERSION
+          python3 ../scnet-hpc/.github/scripts/onboarding_docs.py \
+            --skill-dir skills/scnet-hpc
 
       - name: Install dsh-scnet dependencies
         working-directory: dsh-scnet
