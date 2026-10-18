@@ -1,24 +1,25 @@
 name: Sync dsh-scnet
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "VERSION"
-      - "CHANGELOG.md"
-      - "RELEASE_HIGHLIGHTS.md"
-      - "RELEASE_HIGHLIGHTS_CN.md"
-      - "SKILL.md"
-      - "clusters/**"
-      - "references/**"
-      - "scripts/**"
-      - ".github/scripts/release_docs.py"
-      - ".github/workflows/sync-dsh-scnet.yml"
+  workflow_run:
+    workflows: ["Validate skill"]
+    types: [completed]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-dsh-scnet
+  cancel-in-progress: false
 
 jobs:
   sync:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout scnet-hpc
@@ -26,6 +27,7 @@ jobs:
         with:
           path: scnet-hpc
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Checkout dsh-scnet
         uses: actions/checkout@v7
@@ -85,8 +87,16 @@ jobs:
                   marker,
                   additions + marker + '\nchmod +x "$DST/scripts/scnet.py"',
               )
+          attribute_sync = (
+              'if [ -f "$SRC/.gitattributes" ]; then\n'
+              '  cp "$SRC/.gitattributes" "$DST/../../.gitattributes"\n'
+              'fi\n'
+          )
+          if 'cp "$SRC/.gitattributes"' not in text:
+              text += '\n' + attribute_sync
           path.write_text(text)
           PY
+          cp ../scnet-hpc/.gitattributes .gitattributes
 
       - name: Overlay canonical backend entrypoints
         working-directory: dsh-scnet
@@ -194,7 +204,7 @@ jobs:
           delete-branch: true
           title: "Sync scnet-hpc updates"
           body: |
-            自动同步自 lql341/scnet-hpc@${{ github.sha }}。
+            自动同步自 lql341/scnet-hpc@${{ github.event.workflow_run.head_sha || github.sha }}。
 
             同步内容、发布文档和自动发布 workflow 会先经过目标仓库校验；
             必需检查通过后，本 workflow 将自动合并该 PR。
