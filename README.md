@@ -2,20 +2,21 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.11**
+Current release: **0.6.12**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.11 highlights
+## 0.6.12 highlights
 
-- Generate Slurm job scripts even when the optional SSH node-count probe fails, using
-  profile/cache metadata as a fallback; add deterministic coverage for probe outcomes.
-- Correct Windows configuration-permission diagnostics and clarify WSL2 setup guidance.
-- Keep shell scripts on LF line endings across all three repositories; synchronize downstream
-  versions and README release blocks after canonical main validation succeeds.
+- Make first-time AK/SK setup explicit: validate pasted values, hide both keys, show their source,
+  and read back saved credentials before confirming persistence.
+- Support Windows Credential Manager and explain macOS Keychain, Linux keyring requirements,
+  PowerShell session scope, and the Windows/WSL2 boundary.
+- Preview SSH key installation and effective configuration, document cluster usernames and
+  key expiry, and add onboarding tests across Linux, macOS and Windows.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
@@ -23,12 +24,30 @@ profile-based SSH, SCNet OpenAPI, and pluggable future backends. It complements 
 which provides official downloads for Windows 10+, macOS 12 Monterey+ (ARM and x86), and
 Android preview builds.
 
+## What to prepare for first use
+
+Start with **OpenAPI** for queries and standard job management. Add SSH when you need remote
+compilation, environment installation, or shell commands.
+
+| Connection | Required inputs | Where to obtain them |
+| --- | --- | --- |
+| OpenAPI (default) | Platform username, AK, SK | Sign in to SCNet > Personal Center / 个人中心 > Access Control / 访问控制 > generate and download the authorization file. Use its `Accesskey` and `Secretkey` columns. |
+| SSH (as needed) | Target cluster, cluster/Linux username, private-key file path | Select the region in the console > Command Line E-Shell / 命令行 E-Shell > SSH Connection / SSH 连接 at top left. Download the key and check host/port; verify the username with `whoami` in that region's web E-Shell. |
+
+Your account needs access to the target region. Prepare credentials for the chosen connection;
+explanations and offline preparation require none. **Enter AK/SK only in your own terminal's hidden
+prompts. For SSH, supply a local file path. Keep keys and private-key contents out of chat.**
+
+Ask your agent to help configure scnet-hpc for the first time. The Skill explains the inputs and
+their sources before providing a local command for your OS and actual installation directory.
+See the [first-use checklist](references/first-use.md) and configuration panel below.
+
 Supported local operating systems:
 
 - **Linux:** natively supported by the repository scripts;
 - **macOS:** natively supported by the repository scripts;
-- **Windows:** the official SCNet client supports Windows 10 and later, but this repository does
-  not provide native Windows script entry points. Use WSL2 for the repository workflows.
+- **Windows:** the Python OpenAPI entry point supports PowerShell and Windows Credential Manager.
+  Use WSL2 for automatic SSH key installation and the complete Bash-based workflows.
   Git Bash may support some commands, but it is not a fully validated environment.
 
 It provides:
@@ -159,10 +178,21 @@ authorized regions and schedulers:
 python3 scripts/scnet.py setup
 ```
 
-On macOS, OpenAPI credentials can be stored in Keychain; Linux uses Secret Service when
-available. Otherwise inject them through environment variables. On Ubuntu/Debian, install
-`libsecret-tools` (`sudo apt install libsecret-tools`) to enable `secret-tool` storage; this is
-needed for secure local credential storage, not for API calls using environment variables.
+Paste the platform user, AccessKey, and SecretKey values individually in the setup panel;
+both keys are hidden. The panel rejects pasted assignments, line breaks, and invisible characters,
+verifies saved credentials by reading them back, and distinguishes region setup from credential persistence.
+
+| Platform | Persistent AK/SK storage | Requirements |
+|---|---|---|
+| macOS | Built-in Keychain | No extra package; allow/unlock access when prompted |
+| Linux desktop | Secret Service | `secret-tool` plus a running, unlocked keyring; Ubuntu/Debian: `libsecret-tools` |
+| Linux server/headless | Environment injection | No keyring dependency for API calls; installing the CLI alone does not start a keyring |
+| Native Windows | Current user's Windows Credential Manager | Python 3; no extra keyring package |
+
+On Windows, run `python scripts/scnet.py setup new --mode openapi` from PowerShell.
+Environment credentials take precedence over the system store. PowerShell `$env:` assignments affect
+the current session and subsequently launched children, not an already-running desktop application.
+See [`references/openapi.md`](references/openapi.md) for storage locations and injection examples.
 
 Notebook is integrated as a separate service domain with read-only discovery and
 confirmation-driven lifecycle operations:
@@ -248,6 +278,11 @@ to the documented chunked upload flow. Use `--dry-run` to preview mutations with
 the backend.
 
 ## SSH configuration
+
+SSH uses a private-key file downloaded from the target cluster console, independently of AK/SK.
+Use the cluster/Linux username, which can differ from the platform account. The wizard previews the
+target host, installed-key path, and handling of existing configuration before requesting input.
+Enter the file path, not the private-key text or a `.pub` public-key file.
 
 Obtain the private key from the SCNet console, then run:
 

@@ -45,3 +45,19 @@ jobs:
             echo "疑似凭据进入仓库" >&2
             exit 1
           fi
+
+  onboarding:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test credential storage and first-use outcomes
+        env:
+          PYTHONUTF8: '1'
+        run: python tests/test-onboarding.py
