@@ -2,19 +2,20 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.10**
+Current release: **0.6.11**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.10 highlights
+## 0.6.11 highlights
 
-- Coordinate the synchronized downstream DSH release with a protocol-neutral one-shot loopback
-  OAuth callback listener, fixed-path validation, timeout cleanup, and generic browser responses.
-- Keep the canonical Skill endpoint-neutral; no SCNet issuer, endpoint, client ID, scope, or
-  credential is embedded in this release.
+- Generate Slurm job scripts even when the optional SSH node-count probe fails, using
+  profile/cache metadata as a fallback; add deterministic coverage for probe outcomes.
+- Correct Windows configuration-permission diagnostics and clarify WSL2 setup guidance.
+- Keep shell scripts on LF line endings across all three repositories; synchronize downstream
+  versions and README release blocks after canonical main validation succeeds.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through

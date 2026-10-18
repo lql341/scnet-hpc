@@ -1,28 +1,25 @@
 name: Sync codex-scnet-hpc
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "VERSION"
-      - "CHANGELOG.md"
-      - "RELEASE_HIGHLIGHTS.md"
-      - "RELEASE_HIGHLIGHTS_CN.md"
-      - "SKILL.md"
-      - "agents/**"
-      - "clusters/**"
-      - "references/**"
-      - "scripts/**"
-      - ".github/scripts/release_docs.py"
-      - ".github/workflows/sync-codex-scnet-hpc.yml"
+  workflow_run:
+    workflows: ["Validate skill"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: sync-codex-scnet-hpc
+  cancel-in-progress: false
+
 jobs:
   sync:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout scnet-hpc
@@ -30,6 +27,7 @@ jobs:
         with:
           path: scnet-hpc
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Checkout codex-scnet-hpc
         uses: actions/checkout@v7
@@ -84,8 +82,16 @@ jobs:
                   marker,
                   additions + marker + '\nchmod +x "$DST/scripts/scnet.py"',
               )
+          attribute_sync = (
+              'if [ -f "$SRC/.gitattributes" ]; then\n'
+              '  cp "$SRC/.gitattributes" "$ROOT/.gitattributes"\n'
+              'fi\n'
+          )
+          if 'cp "$SRC/.gitattributes"' not in text:
+              text += '\n' + attribute_sync
           path.write_text(text)
           PY
+          cp ../scnet-hpc/.gitattributes .gitattributes
 
       - name: Overlay canonical backend entrypoints
         working-directory: codex-scnet-hpc
@@ -183,7 +189,7 @@ jobs:
           delete-branch: true
           title: "Sync scnet-hpc updates"
           body: |
-            Automatically synchronized from lql341/scnet-hpc@${{ github.sha }}.
+            Automatically synchronized from lql341/scnet-hpc@${{ github.event.workflow_run.head_sha || github.sha }}.
 
             The Codex skills-only Plugin wrapper and release metadata are generated from the canonical Skill repository.
             The workflow will merge this PR after the required target validation passes.
