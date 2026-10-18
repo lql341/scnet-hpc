@@ -11,6 +11,8 @@ available through the API. Never silently switch backends.
 
 ## First use and selection
 
+- For credential setup, storage, or paste errors, read `references/openapi.md`; for SSH private keys,
+  usernames, Windows/WSL2 paths, or expiry, read `references/setup.md` before configuring anything.
 - Run `scripts/setup.sh new|modify|status|reset` for explicit configuration lifecycle.
   OpenAPI setup requires Python 3. With no saved preference, default to OpenAPI; credentials
   can come from environment variables or the supported OS credential store.

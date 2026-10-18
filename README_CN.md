@@ -2,20 +2,21 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.6.11**
+当前版本：**0.6.12**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.11 更新
+## 0.6.12 更新
 
-- SSH 实时节点数探测失败时，回退到 profile/cache，继续生成 Slurm 作业脚本；
-  使用模拟 SSH 覆盖各类探测结果，回归测试不依赖真实网络。
-- 修复 Windows 配置文件权限诊断误报，补充 Windows 提示与 WSL2 使用指引。
-- 三个仓库统一保持 shell 脚本使用 LF；源仓库 main 校验通过后，自动同步下游版本与
-  中英文 README 发布说明。
+- 优化首次 AK/SK 配置：检查粘贴错误、隐藏双密钥、显示实际来源，保存后读回验证，
+  明确区分区域元数据与凭据持久保存。
+- 支持 Windows 凭据管理器，解释 macOS Keychain、Linux 密钥环依赖、PowerShell 会话
+  作用域与 Windows/WSL2 环境隔离。
+- 提前展示 SSH 私钥安装计划与实际配置，补充集群用户名、密钥有效期和 Windows OpenSSH
+  指引，并增加 Linux、macOS、Windows 三平台配置回归测试。
 <!-- scnet-release:end -->
 
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
@@ -27,9 +28,9 @@ python3 scripts/scnet.py --version
 
 - **Linux**：仓库脚本原生支持；
 - **macOS**：仓库脚本原生支持；
-- **Windows**：官方 SCNet 客户端支持 Windows 10 及以上，但本仓库依赖 Bash、SSH、
-  `sed`、`awk` 等 Unix 工具，不提供 Windows 原生脚本入口。建议通过 WSL2 使用；
-  Git Bash 可能支持部分命令，但尚未作为完整环境验证。
+- **Windows**：Python OpenAPI 入口可在 PowerShell 使用，并支持 Windows 凭据管理器；
+  SSH 自动安装和依赖 Bash、`sed`、`awk` 的完整脚本环境建议通过 WSL2 使用。
+  已有 Windows OpenSSH 配置可供 SSH backend 使用；Git Bash 尚未作为完整环境验证。
 
 主要能力：
 
@@ -155,8 +156,19 @@ OpenAPI 只需要配置一次平台用户名、AK 和 SK；区域 ID、区域用
 python3 scripts/scnet.py setup
 ```
 
-macOS 会优先使用 Keychain 保存 OpenAPI 凭据；Linux 如果有 Secret Service 则使用它。
-没有安全凭据库时请通过环境变量注入，不会写入普通配置文件。
+无需先手写环境变量：进入向导后逐项粘贴三个字段的值，AK/SK 均不回显。向导会检查误粘贴的
+赋值命令、换行和不可见字符；保存后读回验证，并显示真实保存状态。
+
+| 系统 | AK/SK 持久保存 | 需要准备什么 |
+|---|---|---|
+| macOS | 系统 Keychain | 无额外依赖；按系统提示解锁/授权 |
+| Linux 桌面 | Secret Service | `secret-tool` 加运行且已解锁的密钥环；Ubuntu/Debian 可安装 `libsecret-tools` |
+| Linux 服务器 / 无桌面 | 可由宿主注入环境变量 | 不强制安装 `libsecret-tools`；安装工具不等于密钥环服务可用 |
+| Windows PowerShell | 当前用户的 Windows 凭据管理器 | Python 3，无额外密钥环依赖 |
+
+Windows 使用 `python scripts/scnet.py setup new --mode openapi`。环境变量优先于系统凭据库；
+PowerShell 的 `$env:` 赋值只影响当前窗口及其后启动的子进程，已打开的桌面应用不会自动获得。
+具体命令、查看/删除位置见 [`references/openapi.md`](references/openapi.md)。
 
 Notebook 已作为独立服务域接入，支持只读查询和确认驱动的生命周期操作：
 
@@ -182,7 +194,8 @@ OpenAPI 区域支持多选：使用 ↑/↓ 移动、Space 勾选、`a` 全选�
 AK/SK 获取路径：登录 SCNet，进入“个人中心 → 访问控制”，生成并下载授权码。配置面板
 支持 ↑/↓ 移动并按 Enter 确认，也可以输入数字后按 Enter；直接按 Enter 使用当前默认项。
 macOS Terminal、Ubuntu Terminal 和 Debian Terminal 的操作方式相同。Ubuntu/Debian
-可用 `sudo apt install libsecret-tools` 安装 Secret Service 命令行工具，以便安全保存 AK/SK；如果通过环境变量提供凭据，则无需安装。
+可用 `sudo apt install libsecret-tools` 安装 Secret Service 命令行工具，保存时还需密钥环服务运行
+并解锁；如果通过环境变量提供凭据，则无需安装。
 
 配置后可以只读检查：
 
@@ -235,6 +248,10 @@ OpenAPI backend 现在支持创建远端目录，超过 8 MiB 的文件会自动
 可以通过 `--dry-run` 预览提交、取消、目录创建和文件传输操作，而不连接 backend。
 
 ## 配置 SSH
+
+SSH 使用目标集群控制台下载的私钥文件，和 OpenAPI AK/SK 分开配置。用户名是区域内的
+集群/Linux 用户名，可能与平台登录名不同。向导会先显示连接目标、私钥目标位置及已有配置的
+处理方式；只需输入文件路径，不要粘贴私钥内容，也不要选择 `.pub` 公钥。
 
 从 SCNet 控制台取得私钥后执行：
 

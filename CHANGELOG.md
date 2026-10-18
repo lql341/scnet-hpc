@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.12 - 2026-10-18
+
+- Guide AK/SK input with quote normalization, paste validation, hidden keys, and explicit
+  credential source/persistence status; verify saved credentials by reading them back.
+- Add current-user Windows Credential Manager support and portable non-secret config writes;
+  clarify Keychain, Linux keyring dependencies, PowerShell process scope, and WSL2 separation.
+- Preview SSH key sources, cluster usernames, installed paths and existing Host handling;
+  report effective SSH parameters and document Windows OpenSSH setup and key expiry.
+- Test onboarding outcomes and credential handling on Linux, macOS and Windows, including
+  an isolated native Windows credential-store round trip with dummy data.
+
 ## 0.6.11 - 2026-10-18
 
 - Keep Slurm job generation working when the optional SSH node-count probe fails;
