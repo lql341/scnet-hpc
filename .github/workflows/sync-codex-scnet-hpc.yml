@@ -154,6 +154,8 @@ jobs:
           PY
           python3 .github/scripts/release_docs.py \
             --version-file plugins/scnet-hpc/skills/scnet-hpc/VERSION
+          python3 ../scnet-hpc/.github/scripts/onboarding_docs.py \
+            --skill-dir plugins/scnet-hpc/skills/scnet-hpc
 
       - name: Validate Codex plugin
         working-directory: codex-scnet-hpc

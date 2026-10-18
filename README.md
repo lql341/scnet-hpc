@@ -2,21 +2,19 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.12**
+Current release: **0.6.13**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.12 highlights
+## 0.6.13 highlights
 
-- Make first-time AK/SK setup explicit: validate pasted values, hide both keys, show their source,
-  and read back saved credentials before confirming persistence.
-- Support Windows Credential Manager and explain macOS Keychain, Linux keyring requirements,
-  PowerShell session scope, and the Windows/WSL2 boundary.
-- Preview SSH key installation and effective configuration, document cluster usernames and
-  key expiry, and add onboarding tests across Linux, macOS and Windows.
+- Recover malformed Windows credential entries with actionable, redacted guidance.
+- Print absolute follow-up commands that work from any directory, with shell-appropriate quoting.
+- Synchronize first-use preparation checklists into both distribution READMEs and clarify
+  native Windows OpenAPI support, with regression coverage for both layouts.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
