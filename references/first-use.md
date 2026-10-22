@@ -74,8 +74,6 @@ Windows 原生使用 OpenAPI 无需 WSL2；SSH 自动安装需要 WSL2 或按连
 无密钥环的服务器可用宿主秘密注入；完整示例与 PowerShell 会话范围见 [OpenAPI 说明](openapi.md)。
 
 `setup status` 查看实际凭据来源及配置状态；`doctor` 只读检查认证和连接。
-需要核对本次指定区域/队列时，使用 `doctor --region <id> --queue <queue>`；
-`--queue` 可重复，队列必须属于该区域。
 区域配置完成不等于凭据已保存；不能仅凭 setup 成功就宣称以后不需要提供凭据。
 
 ## 首次介绍示例
