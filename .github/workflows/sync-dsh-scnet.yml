@@ -131,44 +131,6 @@ jobs:
           package = json.loads(path.read_text())
           package["version"] = version
           path.write_text(json.dumps(package, indent=2, ensure_ascii=False) + "\n")
-          replacements = {
-              "README.md": (
-                  "Release order is canonical-to-downstream: update `scnet-hpc/VERSION` first; its CI then\n"
-                  "synchronizes the skill and version into `dsh-scnet` and `codex-scnet-hpc`. Publish the matching\n"
-                  "`dsh-scnet` npm package only after that downstream change is reviewed.\n\n"
-                  "For a synchronized release, run the package validation on `main`, then trigger the repository's\n"
-                  "`Publish DSH-SCNet` workflow with the exact current version from `package.json`. The\n"
-                  "workflow verifies the package/Skill version match, runs validation, creates the tarball, publishes\n"
-                  "stable releases with the `latest` tag, and creates the matching Git tag. Do not bump only\n"
-                  "`package.json`: `skills/scnet-hpc/VERSION`, the package version, and both README release markers\n"
-                  "must stay aligned.",
-                  "Release order is canonical-to-downstream: update the canonical `VERSION` and release highlights "
-                  "once. CI synchronizes both distribution repositories. After each synchronized pull request "
-                  "passes validation, the workflow merges it automatically. "
-                  "The resulting `main` push validates and packs the bundle, publishes the npm package with the "
-                  "appropriate `latest` or `next` tag, and creates the matching Git tag and GitHub Release. "
-                  "Do not bump only `package.json`: the canonical `VERSION` remains the release source of truth.",
-              ),
-              "README_CN.md": (
-                  "发布顺序也是从 canonical 向下游流转：先在 `scnet-hpc` 修改并发布 `VERSION`，其 CI\n"
-                  "再把 Skill 内容和版本同步到 `dsh-scnet` 与 `codex-scnet-hpc`。下游变更审核通过后，\n"
-                  "才能发布对应版本的 `dsh-scnet` npm 包。\n\n"
-                  "下游同步合并到 `main` 后，先运行本地校验，再手动触发仓库的 `Publish DSH-SCNet` workflow，\n"
-                  "输入 `package.json` 中的当前版本。workflow 会校验 package 与 Skill\n"
-                  "版本一致，执行验证、生成 tarball、以稳定版 `latest` 标签发布，并创建对应 Git tag。\n"
-                  "不要只修改 `package.json`；`skills/scnet-hpc/VERSION`、package 版本和两份 README 的版本\n"
-                  "标记必须保持一致。",
-                  "发布只需在 canonical 仓库更新一次 `VERSION` 与版本亮点，CI 会同步两个分发仓库。"
-                  "下游同步 PR 校验通过后自动合并；合并产生的 `main` push 会校验并打包 bundle，"
-                  "以对应的 `latest` 或 `next` 标签发布 npm package，并创建匹配的 Git tag 与 GitHub "
-                  "Release。不要只修改 `package.json`；canonical `VERSION` 仍是唯一版本来源。",
-              ),
-          }
-          for name, (old, new) in replacements.items():
-              path = Path(name)
-              text = path.read_text()
-              if old in text:
-                  path.write_text(text.replace(old, new))
           PY
           python3 .github/scripts/release_docs.py \
             --version-file skills/scnet-hpc/VERSION
