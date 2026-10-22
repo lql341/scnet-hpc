@@ -2,14 +2,14 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.14**
+Current release: **0.6.15**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.14 highlights
+## 0.6.15 highlights
 
 - Recover malformed Windows credential entries with actionable, redacted guidance.
 - Print absolute follow-up commands that work from any directory, with shell-appropriate quoting.

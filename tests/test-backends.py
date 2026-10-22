@@ -79,6 +79,104 @@ class DoctorConfigTests(unittest.TestCase):
                 check, _ = self.report_config_check(os_name, exists=False)
                 self.assertFalse(check["ok"])
 
+    def test_requested_region_and_queue_are_bound(self):
+        calls = []
+
+        class FakeBackend:
+            def execute(self, operation, options):
+                calls.append((operation, options))
+                if operation == "clusters":
+                    return [{"id": "region-a"}]
+                if operation == "queues":
+                    return [{"partition": "queue-a"}]
+                raise AssertionError(operation)
+
+        path = Mock()
+        path.is_file.return_value = True
+        path.stat.return_value.st_mode = 0o600
+        with (
+            patch("scnet.config_path", return_value=path),
+            patch("scnet.os.name", "posix"),
+            patch("scnet.load_openapi_credentials", return_value=({"user": "u"}, "test")),
+            patch("scnet.create_backend", return_value=FakeBackend()),
+        ):
+            report = doctor_report(
+                "openapi",
+                None,
+                {},
+                {"openapi": {"default_region_id": "region-b"}},
+                no_network=False,
+                timeout=5,
+                requested_region="region-a",
+                requested_queues=["queue-a"],
+            )
+        region = next(item for item in report["checks"] if item["name"] == "openapi_region")
+        queue = next(
+            item for item in report["checks"] if item["name"] == "openapi_queue_binding"
+        )
+        self.assertTrue(region["ok"])
+        self.assertIn("region-a", region["detail"])
+        self.assertIn("cli", region["detail"])
+        self.assertTrue(queue["ok"])
+        self.assertTrue(any(options.get("region") == "region-a" for _, options in calls))
+
+    def test_missing_requested_queue_fails_closed(self):
+        class FakeBackend:
+            def execute(self, operation, options):
+                if operation == "clusters":
+                    return [{"id": "region-a"}]
+                if operation == "queues":
+                    return [{"partition": "queue-b"}]
+                raise AssertionError(operation)
+
+        path = Mock()
+        path.is_file.return_value = True
+        path.stat.return_value.st_mode = 0o600
+        with (
+            patch("scnet.config_path", return_value=path),
+            patch("scnet.os.name", "posix"),
+            patch("scnet.load_openapi_credentials", return_value=({"user": "u"}, "test")),
+            patch("scnet.create_backend", return_value=FakeBackend()),
+        ):
+            report = doctor_report(
+                "openapi",
+                None,
+                {},
+                {},
+                no_network=False,
+                timeout=5,
+                requested_region="region-a",
+                requested_queues=["queue-a"],
+            )
+        check = next(
+            item for item in report["checks"] if item["name"] == "openapi_queue_binding"
+        )
+        self.assertFalse(check["ok"])
+        self.assertFalse(report["ok"])
+
+    def test_no_network_cannot_claim_queue_binding(self):
+        path = Mock()
+        path.is_file.return_value = True
+        path.stat.return_value.st_mode = 0o600
+        with (
+            patch("scnet.config_path", return_value=path),
+            patch("scnet.os.name", "posix"),
+            patch("scnet.load_openapi_credentials", return_value=(None, None)),
+        ):
+            report = doctor_report(
+                "openapi",
+                None,
+                {},
+                {},
+                no_network=True,
+                timeout=5,
+                requested_queues=["queue-a"],
+            )
+        check = next(
+            item for item in report["checks"] if item["name"] == "openapi_queue_binding"
+        )
+        self.assertFalse(check["ok"])
+
 
 class ProfileTests(unittest.TestCase):
     def test_repository_profiles_parse(self):

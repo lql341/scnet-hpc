@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.15 - 2026-10-22
+
+- Let `doctor` accept an explicit region and repeated queues, and verify that
+  each selected queue exists in that region.
+- Reject queue binding when `--no-network` cannot verify it.
+- Report whether the region came from CLI, environment, profile or user config.
+- Add region/queue binding and missing-queue regressions.
+
 ## 0.6.14 - 2026-10-22
 
 - Resolve the OpenAPI region from `SCNET_OPENAPI_REGION_ID`, then the selected
