@@ -162,7 +162,13 @@ backend 默认使用已有选择，没有选择时使用 OpenAPI。非敏感主�
 SSH 和 OpenAPI 区域元数据分别保存到同目录下的 `ssh/<profile>.json` 和 `openapi.json`，
 不会保存 AK、SK 或 token。
 
-OpenAPI 只需要配置一次平台用户名、AK 和 SK；区域 ID、区域用户名和调度器会自动发现。
+OpenAPI 对每个平台账号各配置一次用户名、AK 和 SK；区域 ID、区域用户名和调度器会自动发现。
+若需在并行 agent 会话中使用不同账号，可分别运行
+`python3 scripts/scnet.py --account team-a setup new --mode openapi` 和
+`python3 scripts/scnet.py --account team-b setup new --mode openapi`；启动每个 agent 会话前在
+各自终端设置 `SCNET_OPENAPI_ACCOUNT=team-a` 或 `team-b`。这只影响该会话及其子进程，
+不修改全局默认账号。单次命令可用 `--account` 覆盖。旧配置在未指定别名时继续使用；
+详见 [`references/openapi.md`](references/openapi.md)。
 开发者也可以使用功能更完整的 Python 面板，它会验证凭据并发现所有授权区域：
 
 ```bash
@@ -262,7 +268,10 @@ OpenAPI backend 现在支持创建远端目录，超过 8 MiB 的文件会自动
 
 ## 配置 SSH
 
-SSH 使用目标集群控制台下载的私钥文件，和 OpenAPI AK/SK 分开配置。用户名是区域内的
+SSH 使用目标集群控制台下载的私钥文件，和 OpenAPI AK/SK 分开配置。同一集群多个 SSH 用户可在
+`python3 scripts/scnet.py setup new --mode ssh` 中选择“新增独立 SSH 用户别名”，
+然后用 `--backend ssh --cluster <别名>` 显式访问；关联的基础集群 profile 仅存于本机配置，
+不会覆盖原 SSH 别名或切换默认 OpenAPI。用户名是区域内的
 集群/Linux 用户名，可能与平台登录名不同。向导会先显示连接目标、私钥目标位置及已有配置的
 处理方式；只需输入文件路径，不要粘贴私钥内容，也不要选择 `.pub` 公钥。
 

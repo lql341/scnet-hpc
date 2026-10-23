@@ -61,6 +61,34 @@ Use `setup status` for metadata and the actual credential source visible to the 
 use `doctor --no-network` for local checks or `doctor` for a read-only connection check.
 `setup reset` can delete the credential-store item separately from region metadata.
 
+### Multiple accounts, selected per agent session
+
+Configure each account under a distinct local alias (non-secret, e.g. `team-a`). The alias
+selects a separate credential-store item and separate region defaults; it never changes a global
+active account. Run these commands in your own terminal (not in chat):
+
+```bash
+python3 scripts/scnet.py --account team-a setup new --mode openapi
+python3 scripts/scnet.py --account team-b setup new --mode openapi
+```
+
+For an existing alias use `setup modify --mode openapi`. In each agent session, set
+`SCNET_OPENAPI_ACCOUNT=team-a` in the environment **before starting the agent**, then commands
+launched by that session use that account. Another session may use `team-b` concurrently.
+For a single invocation, `python3 scripts/scnet.py --account team-b --backend openapi queues`
+(overrides the session variable). On Windows PowerShell use
+`$env:SCNET_OPENAPI_ACCOUNT = "team-a"` before launching the agent, and use `python` instead of
+`python3` if necessary. Check selection with `python3 scripts/scnet.py setup status` or
+`python3 scripts/scnet.py --backend openapi doctor --no-network` in the same session.
+
+The original unaliased item (`scnet-hpc-openapi`) remains available when no alias is selected.
+A named account never falls back to this item or another account's credential store. Region
+metadata is scoped to the alias. Environment-injected USER/ACCESS_KEY/SECRET_KEY still take
+precedence as a *complete set*: clear stale overrides before using a saved named account.
+Do not paste AK/SK into chat or commit them to config. Use your OS secure store or session-bound
+host secret injection. `setup reset` for OpenAPI credentials/regions with an alias selected affects
+that alias; reset of **all** local metadata remains global.
+
 ### Environment injection
 
 Set all three variables together. A partial set is rejected instead of mixing one account's

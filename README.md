@@ -163,11 +163,18 @@ record key-expiry metadata inferred from the downloaded filename. OpenAPI setup 
 Without Python, only first-time SSH setup is supported; updating an existing main configuration
 requires Python to preserve unrelated fields. The panel defaults to `new` on first use and
 `modify` when configured. It preserves the saved backend choice and otherwise defaults to OpenAPI.
-OpenAPI uses one platform username/AK/SK credential set to discover all authorized regions and
+OpenAPI uses one platform username/AK/SK credential set per selected account to discover all authorized regions and
 schedulers. It saves only non-secret choices under
 `~/.config/scnet-hpc/config.json` (or `$XDG_CONFIG_HOME/scnet-hpc/config.json`); AK/SK and
 tokens are never written there. SSH metadata is stored in `ssh/<profile>.json` and OpenAPI
 region metadata in `openapi.json` under the same configuration directory.
+
+For concurrent agent sessions with different accounts, configure each alias using
+`python3 scripts/scnet.py --account team-a setup new --mode openapi` (and likewise for
+`team-b`), then set `SCNET_OPENAPI_ACCOUNT=team-a` in that agent session's launch environment.
+Aliases have separate secure-store items and region defaults; `--account team-b` overrides
+selection for one CLI invocation. Unaliased setups continue to work. See
+[`references/openapi.md`](references/openapi.md).
 
 Developers can use the richer Python panel, which validates OpenAPI credentials and discovers
 authorized regions and schedulers:
@@ -278,6 +285,10 @@ the backend.
 ## SSH configuration
 
 SSH uses a private-key file downloaded from the target cluster console, independently of AK/SK.
+For multiple SSH users on one cluster, choose “add an independent SSH alias” in
+`python3 scripts/scnet.py setup new --mode ssh`. The alias inherits static cluster settings
+from a base profile, keeps its own local SSH key and metadata, and is selected explicitly with
+`--backend ssh --cluster <alias>`; OpenAPI stays the default. See [`setup.md`](references/setup.md).
 Use the cluster/Linux username, which can differ from the platform account. The wizard previews the
 target host, installed-key path, and handling of existing configuration before requesting input.
 Enter the file path, not the private-key text or a `.pub` public-key file.
