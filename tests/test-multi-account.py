@@ -239,5 +239,37 @@ class MultiAccountTests(unittest.TestCase):
             self.assertEqual(os.environ["SCNET_OPENAPI_ACCOUNT"], "alice")
 
 
+class NoHomeTests(unittest.TestCase):
+    """Listing repo profiles must not require a resolvable home directory."""
+
+    def test_list_profiles_survives_missing_home(self):
+        from unittest.mock import patch
+        from scnet_backends import profile as profile_module
+
+        with patch.object(
+            profile_module,
+            "config_root",
+            side_effect=RuntimeError("Could not determine home directory."),
+        ):
+            root = Path(__file__).resolve().parents[1]
+            names = [item["name"] for item in profile_module.list_profiles(root)]
+        self.assertIn("kseshell", names)
+
+    def test_load_profile_survives_missing_home(self):
+        from unittest.mock import patch
+        from scnet_backends import profile as profile_module
+
+        with patch.object(
+            profile_module,
+            "config_root",
+            side_effect=RuntimeError("Could not determine home directory."),
+        ):
+            name, values = profile_module.load_profile(
+                Path(__file__).resolve().parents[1], "kseshell"
+            )
+        self.assertEqual(name, "kseshell")
+        self.assertEqual(values["CLUSTER_ID"], "kseshell")
+
+
 if __name__ == "__main__":
     unittest.main()

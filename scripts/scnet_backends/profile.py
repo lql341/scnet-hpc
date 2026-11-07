@@ -51,7 +51,9 @@ def parse_profile(path: Path) -> dict[str, str]:
 def _alias_base(repo_root: Path, name: str) -> str | None:
     try:
         data = json.loads(ssh_alias_path(name).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except (OSError, RuntimeError, ValueError):
+        # No home directory (empty environment) or an unreadable alias file must
+        # not break listing the repository's own profiles.
         return None
     base = data.get("base_profile") if isinstance(data, dict) else None
     if not isinstance(base, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", base):
@@ -76,7 +78,7 @@ def list_profiles(repo_root: Path) -> list[dict[str, str]]:
                 "default_backend": profile.get("DEFAULT_BACKEND", "openapi"),
             }
         )
-    for path in sorted((config_root() / "ssh" / "aliases").glob("*.json")):
+    for path in _local_alias_files():
         if (cluster_dir / f"{path.stem}.conf").exists():
             continue
         base = _alias_base(repo_root, path.stem)
@@ -86,6 +88,14 @@ def list_profiles(repo_root: Path) -> list[dict[str, str]]:
                 "description": f"SSH alias of {base}", "default_backend": "openapi",
             })
     return result
+
+
+def _local_alias_files() -> list[Path]:
+    """Local SSH aliases are optional; an unresolvable home must not raise."""
+    try:
+        return sorted((config_root() / "ssh" / "aliases").glob("*.json"))
+    except (OSError, RuntimeError):
+        return []
 
 
 def load_profile(repo_root: Path, name: str | None) -> tuple[str | None, dict[str, str]]:

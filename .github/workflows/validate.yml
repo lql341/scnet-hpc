@@ -39,6 +39,9 @@ jobs:
       - name: Test backend routing
         run: python3 tests/test-backends.py
 
+      - name: Test session-scoped accounts
+        run: python3 tests/test-multi-account.py
+
       - name: Check repository hygiene
         run: |
           git diff --check
