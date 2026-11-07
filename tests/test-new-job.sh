@@ -15,7 +15,7 @@ cat > "$TEST_DIR/bin/ssh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = "-G" ]; then
-    printf 'hostname mock.invalid\nuser ciuser\nport 22\n'
+    printf 'hostname mock.invalid\nuser ciuser\nport %s\n' "${MOCK_PORT:-22}"
     exit 0
 fi
 printf 'probe\n' >> "$MOCK_SSH_LOG"
@@ -47,6 +47,11 @@ export MOCK_SSH_LOG="$TEST_DIR/ssh-probes.log"
         echo "CPU 作业不应包含 --gres" >&2
         exit 1
     fi
+    if grep -q 'import torch' cpu-build.slurm; then
+        echo "CPU 作业的骨架不应 import torch（否则一跑就失败）" >&2
+        exit 1
+    fi
+    grep -q 'import torch' dcu-smoke.slurm
 
     "$REPO_ROOT/scripts/new-job.sh" --no-auto --cluster kseshell --user ciuser \
         --partition kshdAI short-probe 1 8 00:10:00 >/dev/null
@@ -79,6 +84,27 @@ export MOCK_SSH_LOG="$TEST_DIR/ssh-probes.log"
         test ! -s "$name.stderr"
     done
     test "$(wc -l < "$MOCK_SSH_LOG")" -eq 5
+
+    # profile 缺 SSH_PORT 时应回退到 ssh -G 解析出的端口，而不是提前默认成 22
+    (
+        local_dir="$TEST_DIR/noport-profile"
+        mkdir -p "$local_dir"
+        cat > "$local_dir/noport.conf" <<'CONF'
+CLUSTER_ID="noport"
+SSH_HOST=""
+HOME_BASE="/public/home"
+PARTITION=""
+CONF
+        . "$REPO_ROOT/scripts/_common.sh"
+        CLUSTER_DIR="$local_dir"
+        export SCNET_HPC_LIVE_NODE_COUNT=no
+        export MOCK_PORT=2222
+        load_cluster noport
+        if [ "$SSH_PORT" != "2222" ]; then
+            echo "profile 缺 SSH_PORT 时应使用 ssh -G 的端口，实际 ${SSH_PORT}" >&2
+            exit 1
+        fi
+    )
 )
 
 echo "new-job tests passed"

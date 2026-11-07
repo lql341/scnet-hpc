@@ -29,7 +29,7 @@ from scnet_backends.openapi import (  # noqa: E402
 )
 from scnet_backends.profile import list_profiles, parse_profile
 from scnet_backends.ssh import SSHBackend  # noqa: E402
-from scnet import _parse_multi_numbers, apply_openapi_defaults, summarize_output, _job_terminal, compact_output, main, wait_for_job  # noqa: E402
+from scnet import _parse_multi_numbers, apply_openapi_defaults, summarize_output, _job_terminal, compact_output, error_code_for, main, wait_for_job  # noqa: E402
 from scnet_config import (  # noqa: E402
     config_path,
     load_user_config,
@@ -376,6 +376,44 @@ class CompactOutputTests(unittest.TestCase):
         self.assertFalse(result["timed_out"])
         self.assertEqual(backend.execute.call_count, 2)
 
+    def test_wait_tolerates_a_dropped_connection(self):
+        from unittest.mock import Mock
+        backend = Mock()
+        backend.execute.side_effect = [
+            BackendError("SCNet OpenAPI request failed: timed out"),
+            {"job_id": "1", "state": "COMPLETED"},
+        ]
+        with patch("scnet.time.sleep"):
+            result = wait_for_job(backend, {"wait_timeout": 10, "interval": 1})
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertFalse(result["timed_out"])
+
+    def test_wait_does_not_mask_permanent_errors(self):
+        from unittest.mock import Mock
+        backend = Mock()
+        backend.execute.side_effect = BackendError(
+            "OpenAPI credentials are not configured"
+        )
+        with patch("scnet.time.sleep"):
+            with self.assertRaises(BackendError):
+                wait_for_job(backend, {"wait_timeout": 10, "interval": 1})
+        self.assertEqual(backend.execute.call_count, 1)
+
+    def test_wait_reports_persistent_network_failure(self):
+        from unittest.mock import Mock
+        backend = Mock()
+        backend.execute.side_effect = BackendError(
+            "SCNet OpenAPI request failed: connection reset"
+        )
+        with patch("scnet.time.sleep"):
+            result = wait_for_job(backend, {"wait_timeout": 30, "interval": 1})
+        self.assertTrue(result["timed_out"])
+        self.assertIn("connection reset", result["error"])
+        self.assertEqual(backend.execute.call_count, 3)
+        summarized = summarize_output("wait", result)
+        self.assertIn("connection reset", summarized["error"])
+        self.assertTrue(summarized["timed_out"])
+
 
 class SSHHistoryTests(unittest.TestCase):
     def test_missing_live_id_falls_back_to_accounting(self):
@@ -391,6 +429,110 @@ class SSHHistoryTests(unittest.TestCase):
             with self.assertRaisesRegex(BackendError, "Permission denied"):
                 backend.op_job({"job_id": "42"})
         self.assertEqual(call.call_count, 1)
+
+
+class SSHFormattingTests(unittest.TestCase):
+    def setUp(self):
+        self.backend = SSHBackend(
+            BackendContext(REPO_ROOT, "demo", {"CLUSTER_ID": "demo"})
+        )
+
+    def test_queue_partition_has_no_slurm_padding(self):
+        with patch.object(
+            self.backend,
+            "_ssh",
+            return_value="kshdnormal*|up|333-08:00:00|507|10/20/0/30|dcu:4\n",
+        ):
+            rows = self.backend.op_queues({})
+        self.assertEqual(
+            rows,
+            [
+                {
+                    "partition": "kshdnormal",
+                    "availability": "up",
+                    "max_walltime": "333-08:00:00",
+                    "nodes": "507",
+                    "cpu_state": "10/20/0/30",
+                    "gres": "dcu:4",
+                }
+            ],
+        )
+
+    def test_job_fields_match_openapi_spacing(self):
+        output = "42|RUNNING|cpu       |00:00:01|00:01:00|1|1|node01\n"
+        with patch.object(self.backend, "_ssh", return_value=output):
+            job = self.backend.op_job({"job_id": "42"})
+        self.assertEqual(job["partition"], "cpu")
+        self.assertEqual(job["state"], "RUNNING")
+
+    def test_limits_reports_account_count_instead_of_the_full_list(self):
+        output = (
+            "PartitionName=kshdnormal AllowAccounts=alice,bob,carol "
+            "State=UP TotalNodes=507 MaxTime=333-08:00:00\n"
+        )
+        with patch.object(self.backend, "_ssh", return_value=output):
+            limits = self.backend.op_limits({"partition": "kshdnormal"})
+        self.assertEqual(limits["allow_accounts_count"], 3)
+        self.assertNotIn("allow_accounts", limits)
+        self.assertNotIn("bob", json.dumps(limits))
+        self.assertEqual(limits["TotalNodes"], "507")
+
+    def test_limits_raw_still_exposes_the_full_list(self):
+        output = "PartitionName=kshdnormal AllowAccounts=alice,bob State=UP\n"
+        with patch.object(self.backend, "_ssh", return_value=output):
+            limits = self.backend.op_limits({"partition": "kshdnormal", "raw": True})
+        self.assertEqual(limits["allow_accounts"], ["alice", "bob"])
+
+    def test_quota_parses_df_output(self):
+        output = "/public/home/luql\nks_p300s_public     2950G  964G     1987G  33% /public\n"
+        with patch.object(self.backend, "_ssh", return_value=output):
+            result = self.backend.op_quota({})
+        self.assertEqual(
+            result,
+            [
+                {
+                    "path": "/public/home/luql",
+                    "mount": "/public",
+                    "threshold_gb": 2950,
+                    "usage_gb": 964,
+                    "free_gb": 1987,
+                    "used_percent": 33.0,
+                }
+            ],
+        )
+
+    def test_scp_transfers_ignore_the_short_control_timeout(self):
+        captured = {}
+
+        def fake_run(argv, **kwargs):
+            captured.update(kwargs)
+            return ""
+
+        with (
+            patch.object(self.backend, "_ssh", return_value="MISSING\n/tmp/f\n"),
+            patch.object(self.backend, "_run", side_effect=fake_run),
+        ):
+            self.backend.op_upload({"local_path": __file__, "remote_dir": "/work"})
+        self.assertGreaterEqual(captured["timeout"], 1800)
+
+
+class BackendOptionBoundaryTests(unittest.TestCase):
+    """`limits` is the one operation whose meaning differs per backend."""
+
+    def setUp(self):
+        self.openapi = FakeOpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=5)
+        )
+
+    def test_openapi_limits_rejects_partition(self):
+        with self.assertRaisesRegex(BackendError, "queues"):
+            self.openapi.execute("limits", {"partition": "debug"})
+
+    def test_openapi_limits_without_partition_keeps_working(self):
+        self.openapi.response = {"userMaxCpu": 8, "accountMaxCpu": 64}
+        result = self.openapi.execute("limits", {"partition": None})
+        self.assertEqual(result["user_max_cpus"], 8)
+        self.assertEqual(result["account_max_cpus"], 64)
 
 
 class OpenAPIJobTests(unittest.TestCase):
@@ -724,6 +866,14 @@ class OpenAPIHelperTests(unittest.TestCase):
         self.assertEqual(result["job_id"], "42")
         self.assertNotIn("jobInitAttr", result)
 
+    def test_zero_resource_counts_are_not_treated_as_missing(self):
+        result = normalize_job(
+            {"jobId": "9", "gpuNumReq": 0, "gpuNumUsed": 2, "dcuNumReq": 0}
+        )
+        self.assertEqual(result["gpus"], 0)
+        self.assertEqual(result["dcus"], 0)
+        self.assertEqual(normalize_job({"jobId": "9"})["gpus"], None)
+
 
 class FakeOpenAPIBackend(OpenAPIBackend):
     def __init__(self, context):
@@ -796,9 +946,48 @@ class OpenAPIOperationTests(unittest.TestCase):
         self.assertEqual(method, "POST")
         self.assertTrue(url.endswith("/hpc/openapi/v2/apptemplates/BASIC/BASE/job"))
         body = request["json_body"]["mapAppJobInfo"]
+        self.assertEqual(body["GAP_NPROC"], "8")  # 1 node x 8 cores
         self.assertEqual(body["GAP_NDCU"], "1")
         self.assertEqual(body["GAP_SCHEDULER_OPT_WEB"], "#SBATCH --account=test")
         self.assertNotIn("redacted-token", json.dumps(request["json_body"]))
+
+    def test_multi_node_submit_sends_total_cores(self):
+        self.backend.response = "150"
+        self.backend.execute(
+            "submit",
+            {
+                "name": "mpi",
+                "command": "srun ./a.out",
+                "work_dir": "/public/home/alice/mpi",
+                "queue": "debug",
+                "nodes": 2,
+                "cpus": 8,
+                "dcus": 1,
+            },
+        )
+        body = self.backend.requests[-1][2]["json_body"]["mapAppJobInfo"]
+        self.assertEqual(body["GAP_NNODE"], "2")
+        self.assertEqual(body["GAP_NPROC"], "16")
+        self.assertEqual(body["GAP_NDCU"], "1")
+
+    def test_quota_is_normalized(self):
+        self.backend.response = [
+            {"quotaId": 1, "username": "alice", "path": "/public/home/alice",
+             "threshold": 2950, "usage": 963.43}
+        ]
+        result = self.backend.execute("quota", {})
+        self.assertEqual(
+            result,
+            [
+                {
+                    "path": "/public/home/alice",
+                    "threshold_gb": 2950,
+                    "usage_gb": 963.43,
+                    "free_gb": 1986.57,
+                    "used_percent": 32.7,
+                }
+            ],
+        )
 
     def test_preview_submit_does_not_resolve_region(self):
         preview = self.backend.preview(
@@ -951,6 +1140,60 @@ class FakeHTTPResponse:
         return self._body
 
 
+class OpenAPIDownloadTests(unittest.TestCase):
+    def setUp(self):
+        self.backend = FakeOpenAPIBackend(
+            BackendContext(REPO_ROOT, None, {}, timeout=5)
+        )
+        self.backend._efile_context = lambda options: (
+            "https://example.test/efile",
+            "redacted-token",
+            {},
+        )
+
+    class _Response:
+        def __init__(self, content_type, chunks):
+            self.headers = {"Content-Type": content_type}
+            self._chunks = list(chunks)
+
+        def read(self, size=-1):
+            return self._chunks.pop(0) if self._chunks else b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+    def test_download_streams_in_chunks_and_leaves_no_partial_file(self):
+        response = self._Response(
+            "application/octet-stream", [b"a" * 10, b"b" * 5]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "out.bin"
+            with patch("scnet_backends.openapi.urlopen", return_value=response):
+                result = self.backend.execute(
+                    "download", {"remote_path": "/d/f.bin", "local_path": str(target)}
+                )
+            self.assertEqual(target.read_bytes(), b"a" * 10 + b"b" * 5)
+            self.assertEqual(result["bytes"], 15)
+            self.assertEqual(sorted(p.name for p in Path(directory).iterdir()), ["out.bin"])
+
+    def test_json_error_response_does_not_create_the_target(self):
+        payload = b'{"code": "1", "msg": "no such file"}'
+        response = self._Response("application/json", [payload])
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "out.bin"
+            with patch("scnet_backends.openapi.urlopen", return_value=response):
+                with self.assertRaisesRegex(BackendError, "no such file"):
+                    self.backend.execute(
+                        "download",
+                        {"remote_path": "/d/f.bin", "local_path": str(target)},
+                    )
+            self.assertFalse(target.exists())
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
+
 class OpenAPIHTTPFlowTests(unittest.TestCase):
     def test_auth_center_scheduler_and_queue_flow(self):
         base = "https://mock.scnet.test"
@@ -1045,6 +1288,20 @@ class ExternalBackendTests(unittest.TestCase):
             backend = ExternalBackend(context, "demo", str(executable))
             result = backend.execute("clusters", {})
         self.assertEqual(result, [{"name": "external-demo"}])
+
+
+class ErrorCodeTests(unittest.TestCase):
+    def test_cross_backend_option_is_labelled(self):
+        self.assertEqual(
+            error_code_for(
+                "OpenAPI limits does not support --partition; it reports your quota"
+            ),
+            "UNSUPPORTED_OPTION",
+        )
+        self.assertEqual(error_code_for("connection timed out"), "NETWORK_TIMEOUT")
+        self.assertEqual(
+            error_code_for("no supported secure store"), "BACKEND_ERROR"
+        )
 
 
 if __name__ == "__main__":
