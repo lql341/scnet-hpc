@@ -77,7 +77,21 @@ def panel(env, answers, *arguments):
         os.close(master)
 
 with tempfile.TemporaryDirectory() as temporary:
-    env = dict(os.environ, XDG_CONFIG_HOME=temporary, DSH_SCNET_PYTHON=sys.executable)
+    # Isolate SSH: ssh resolves ~/.ssh/config from the passwd entry, so a failing
+    # stub is the only reliable way to keep detection independent of the developer.
+    home = Path(temporary) / "home"
+    home.mkdir()
+    stub_bin = Path(temporary) / "bin"
+    stub_bin.mkdir()
+    (stub_bin / "ssh").write_text("#!/bin/sh\nexit 255\n")
+    (stub_bin / "ssh").chmod(0o755)
+    env = dict(
+        os.environ,
+        XDG_CONFIG_HOME=temporary,
+        HOME=str(home),
+        PATH=f"{stub_bin}:{os.environ['PATH']}",
+        DSH_SCNET_PYTHON=sys.executable,
+    )
     code, output = panel(env, "\n\n", "--skip-connect")
     assert code == 0, output
     config = Path(temporary) / "scnet-hpc/config.json"
@@ -91,9 +105,11 @@ with tempfile.TemporaryDirectory() as temporary:
     saved = json.loads(config.read_text())
     saved["default_backend"] = "ssh"
     config.write_text(json.dumps(saved))
+    # `--mode ssh` no longer selects a default backend, so it never rewrites the saved choice.
     code, output = panel(env, "\n\n", "--skip-connect")
     assert code != 0 and "没有已配置的 SSH profile" in output, output
-    assert "默认项 2" in output, output
+    assert "选择默认 backend" not in output, output
+    assert json.loads(config.read_text())["default_backend"] == "ssh"
     before = config.read_bytes()
     env["DSH_SCNET_PYTHON"] = str(Path(temporary) / "missing-python")
     code, output = panel(env, "\n", "modify", "--backend", "openapi", "--skip-connect")

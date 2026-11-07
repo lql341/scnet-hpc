@@ -2,28 +2,21 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.16**
+Current release: **0.6.17**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.16 highlights
+## 0.6.17 highlights
 
-- Refuse `--partition` on OpenAPI `limits` (it reports account quota) and point at `queues`,
-  which already exposes partition node counts, free resources and max walltime.
-- Report only the `AllowAccounts` count from SSH `limits` (full list stays behind `--raw`),
-  removing thousands of unrelated user names from normal output.
-- Strip Slurm's right-padded `%P` field so `queues` and `job` render identically from SSH and
-  OpenAPI, and keep legitimate zero GPU/DCU counts in normalized jobs.
-- Stream OpenAPI downloads through a temporary file instead of buffering the whole file, and give
-  SSH `scp` transfers a long timeout so `--timeout 30` cannot abort a large transfer.
-- Fix `SSH_PORT` resolution so a profile without a port uses the `~/.ssh/config` port, quote the
-  remote `scontrol` argument, guard probe job IDs, and stop generating accelerator probes for
-  CPU-only job skeletons.
-- Add a `quota` operation on both backends and fix multi-node submits to send total cores, so
-  requested CPU/DCU capacity matches what the scheduler is asked for.
+- Run concurrent agent sessions under different OpenAPI accounts with `--account` /
+  `SCNET_OPENAPI_ACCOUNT`; each alias keeps its own secure-store item and region defaults and
+  never falls back to another account.
+- Register independent SSH aliases for an existing cluster, so several Linux users on one region
+  can be configured without editing repository profiles.
+- `setup --mode ssh` no longer changes the saved default backend.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
@@ -172,11 +165,18 @@ record key-expiry metadata inferred from the downloaded filename. OpenAPI setup 
 Without Python, only first-time SSH setup is supported; updating an existing main configuration
 requires Python to preserve unrelated fields. The panel defaults to `new` on first use and
 `modify` when configured. It preserves the saved backend choice and otherwise defaults to OpenAPI.
-OpenAPI uses one platform username/AK/SK credential set to discover all authorized regions and
+OpenAPI uses one platform username/AK/SK credential set per selected account to discover all authorized regions and
 schedulers. It saves only non-secret choices under
 `~/.config/scnet-hpc/config.json` (or `$XDG_CONFIG_HOME/scnet-hpc/config.json`); AK/SK and
 tokens are never written there. SSH metadata is stored in `ssh/<profile>.json` and OpenAPI
 region metadata in `openapi.json` under the same configuration directory.
+
+For concurrent agent sessions with different accounts, configure each alias using
+`python3 scripts/scnet.py --account team-a setup new --mode openapi` (and likewise for
+`team-b`), then set `SCNET_OPENAPI_ACCOUNT=team-a` in that agent session's launch environment.
+Aliases have separate secure-store items and region defaults; `--account team-b` overrides
+selection for one CLI invocation. Unaliased setups continue to work. See
+[`references/openapi.md`](references/openapi.md).
 
 Developers can use the richer Python panel, which validates OpenAPI credentials and discovers
 authorized regions and schedulers:
@@ -291,6 +291,10 @@ partition capacity comes from `queues`, and both backends answer `quota` the sam
 ## SSH configuration
 
 SSH uses a private-key file downloaded from the target cluster console, independently of AK/SK.
+For multiple SSH users on one cluster, choose “add an independent SSH alias” in
+`python3 scripts/scnet.py setup new --mode ssh`. The alias inherits static cluster settings
+from a base profile, keeps its own local SSH key and metadata, and is selected explicitly with
+`--backend ssh --cluster <alias>`; OpenAPI stays the default. See [`setup.md`](references/setup.md).
 Use the cluster/Linux username, which can differ from the platform account. The wizard previews the
 target host, installed-key path, and handling of existing configuration before requesting input.
 Enter the file path, not the private-key text or a `.pub` public-key file.
