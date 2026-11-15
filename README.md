@@ -2,21 +2,20 @@
 
 [中文](README_CN.md) | English
 
-Current release: **0.6.17**
+Current release: **0.6.18**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.17 highlights
+## 0.6.18 highlights
 
-- Run concurrent agent sessions under different OpenAPI accounts with `--account` /
-  `SCNET_OPENAPI_ACCOUNT`; each alias keeps its own secure-store item and region defaults and
-  never falls back to another account.
-- Register independent SSH aliases for an existing cluster, so several Linux users on one region
-  can be configured without editing repository profiles.
-- `setup --mode ssh` no longer changes the saved default backend.
+- Add a task-oriented Hygon DCU development index for SourceFind, DTK, DAS, HIP, reusable ROCm
+  documentation, profiling, and compute-node validation, with explicit adaptation boundaries.
+- Make accelerator module and troubleshooting guidance profile-driven and qualify observed
+  compatibility limits by DTK, framework, package, and target architecture.
+- Publish only from successful validation runs triggered by pushes to `main`.
 <!-- scnet-release:end -->
 
 `scnet-hpc` is a Codex and Claude Code skill for operating SCNet HPC clusters through
@@ -357,7 +356,7 @@ Then configure the permanent SSH alias and run a bounded validation job. See
 | [`environment.md`](references/environment.md) | Modules, Python environments, dependencies, and storage |
 | [`troubleshooting.md`](references/troubleshooting.md) | Slurm, logs, runtime, network, and accelerator failures |
 | [`adding-cluster.md`](references/adding-cluster.md) | Profile creation and cluster validation |
-| [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | Hygon DCU/DTK development resources |
+| [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | Hygon DCU, DAS, and reusable ROCm resource index |
 | [`software-compatibility.md`](references/software-compatibility.md) | Compatibility validation and public reporting |
 | [`quickstart-en.md`](references/quickstart-en.md) | English operating guide |
 | [`backends.md`](references/backends.md) | Backend selection, capabilities, and extension protocol |

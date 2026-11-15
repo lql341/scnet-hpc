@@ -2,19 +2,20 @@
 
 中文 | [English](README.md)
 
-当前版本：**0.6.17**
+当前版本：**0.6.18**
 
 ```bash
 python3 scripts/scnet.py --version
 ```
 
 <!-- scnet-release:start -->
-## 0.6.17 更新
+## 0.6.18 更新
 
-- 通过 `--account` / `SCNET_OPENAPI_ACCOUNT` 让并发的 agent 会话使用不同 OpenAPI 账号：
-  每个别名的凭据条目与区域默认值彼此独立，且不会回退到其他账号。
-- 可为同一集群登记独立的 SSH 别名，多个 Linux 用户在一个区域内并行工作，无需改动仓库 profile。
-- `setup --mode ssh` 不再顺带修改已保存的默认 backend。
+- 完善海光 DCU 开发索引，按任务串联 SourceFind、DTK、DAS、HIP、可复用 ROCm 文档、
+  性能分析和计算节点验证，并明确哪些资料和结论不能跨环境直接套用。
+- 环境与排障说明改为从 profile 获取 module 和 Python 配置，并按 DTK、框架、软件包及
+  目标架构限定兼容性结论。
+- 仅由 `main` 分支推送后的成功校验触发自动发版。
 <!-- scnet-release:end -->
 
 `scnet-hpc` 是一个面向 Codex 和 Claude Code 的 SCNet 超算集群技能，通过基于 profile
@@ -337,7 +338,7 @@ SSH 使用目标集群控制台下载的私钥文件，和 OpenAPI AK/SK 分开�
 | [`environment.md`](references/environment.md) | module、Python 环境、依赖和存储 |
 | [`troubleshooting.md`](references/troubleshooting.md) | Slurm、日志、运行时、网络和加速器故障 |
 | [`adding-cluster.md`](references/adding-cluster.md) | profile 创建和集群验证 |
-| [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | 海光 DCU/DTK 开发资料 |
+| [`hygon-dcu-development.md`](references/hygon-dcu-development.md) | 海光 DCU、DAS 与可复用 ROCm 资料索引 |
 | [`software-compatibility.md`](references/software-compatibility.md) | 兼容性验证和公开报告 |
 | [`quickstart-en.md`](references/quickstart-en.md) | 英文快速操作指南 |
 | [`backends.md`](references/backends.md) | backend 选择、能力和扩展协议 |
